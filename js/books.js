@@ -181,43 +181,36 @@ export function makeBookMesh(item, yearColor) {
 /** Place books for one year on the feature bay. Returns meshes. */
 export function placeYearBooks(items, yearColor, parent) {
   const list = [...items].sort((a, b) => a.student_id.localeCompare(b.student_id));
-  const rows = [4, 3, 2, 1, 0];
+  // Eye-level first (hyeok: row 2, then 1). Cat sits on row 3; avoid row 4 so shelfPose sees spines.
+  // Fill order prefers mid shelves; only spill to 0/4 when a year is huge.
+  let rows;
+  if (list.length <= 4) rows = [2];
+  else if (list.length <= 7) rows = [2, 1];
+  else if (list.length <= 24) rows = [2, 1, 3];
+  else if (list.length <= 40) rows = [2, 1, 3, 0];
+  else rows = [2, 1, 3, 0, 4];
+
   const meshes = [];
   const gap = 0.012;
-  const usable = BAY.w - 0.18;
-  let rowIdx = 0;
-  let cursor = -usable / 2;
-  let rowItems = [];
+  const per = Math.max(1, Math.ceil(list.length / rows.length));
 
-  const flushRow = (forceLast = false) => {
-    if (!rowItems.length) return;
-    const useIdx = rowIdx >= rows.length || forceLast ? rows.length - 1 : rowIdx;
-    const y = rowY(rows[useIdx]) + 0.01;
+  const placeOnRow = (slice, shelfRow) => {
+    if (!slice.length) return;
+    const y = rowY(shelfRow) + 0.01;
     const z0 = FEAT_Z;
-    const totalT = rowItems.reduce((s, m) => s + m.userData.dims.t, 0) + gap * Math.max(0, rowItems.length - 1);
+    const totalT = slice.reduce((s, m) => s + m.userData.dims.t, 0) + gap * Math.max(0, slice.length - 1);
     let z = -totalT / 2;
-    for (const m of rowItems) {
+    for (const m of slice) {
       const { t, h, d } = m.userData.dims;
       m.position.set(SHELF_FRONT - d / 2 - 0.01, y + h / 2, z0 + z + t / 2);
       parent.add(m);
       meshes.push(m);
       z += t + gap;
     }
-    if (rowIdx < rows.length) rowIdx += 1;
-    rowItems = [];
   };
 
-  for (const item of list) {
-    const m = makeBookMesh(item, yearColor);
-    const t = m.userData.dims.t;
-    if (cursor + t > usable / 2 && rowItems.length) {
-      flushRow();
-      cursor = -usable / 2;
-    }
-    rowItems.push(m);
-    cursor += t + gap;
-  }
-  flushRow(true);
+  const made = list.map((item) => makeBookMesh(item, yearColor));
+  rows.forEach((r, i) => placeOnRow(made.slice(i * per, (i + 1) * per), r));
   return meshes;
 }
 

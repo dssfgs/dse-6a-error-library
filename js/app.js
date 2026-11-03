@@ -96,12 +96,20 @@ function signPose() {
 function shelfPose() {
   const portrait = camera.aspect < 0.9;
   const vt = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  const yMin = 0.76, yMax = 2.85;
+  // Match hyeok framing so mid shelves (row 1–3) stay on screen; books live on row 2 first.
+  const yMin = 0.76, yMax = 2.98;
   const needH = (yMax - yMin) / (portrait ? 0.8 : 0.86);
   const needW = 1.05;
   let dist = Math.max(needH / (2 * vt), needW / (2 * vt * camera.aspect));
-  let cy = (yMin + yMax) / 2;
-  if (portrait) { dist = 1.45; cy = 1.45; }
+  let cy = (yMin + yMax) / 2 - (portrait ? 0.04 : 0.02);
+  if (bookMeshes.length) {
+    let sum = 0;
+    for (const m of bookMeshes) sum += m.position.y;
+    const avgY = sum / bookMeshes.length;
+    // Bias toward books without leaving the bay frame (sparse student shelves stay readable).
+    cy = Math.min(yMax - 0.35, Math.max(yMin + 0.35, cy * 0.45 + avgY * 0.55));
+  }
+  if (portrait) { dist = 1.45; cy = bookMeshes.length ? Math.min(1.65, Math.max(1.25, cy)) : 1.45; }
   camPos.set(SHELF_FRONT - dist, cy + 0.05, FEAT_Z);
   camLook.set(SHELF_FRONT, cy, FEAT_Z);
 }
