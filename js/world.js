@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
+export const QS = new URLSearchParams(location.search);
+export const STILL = QS.has('still');
 export const MOBILE = matchMedia('(pointer: coarse)').matches || innerWidth < 760;
 
 export const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true });
@@ -13,9 +15,9 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 export const scene = new THREE.Scene();
 scene.background = new THREE.Color('#ffe9c8');
-scene.fog = new THREE.FogExp2('#efcfa2', 0.028);
+scene.fog = new THREE.FogExp2('#efcfa2', 0.024);
 
-export const camera = new THREE.PerspectiveCamera(60, 1, 0.05, 80);
+export const camera = new THREE.PerspectiveCamera(60, 1, 0.05, 100);
 
 function cv(w, h) {
   const c = document.createElement('canvas');
@@ -105,8 +107,9 @@ export function box(w, h, d, mat, x, y, z, parent = scene, r = 0.02, shadow = tr
   return m;
 }
 
-export const X0 = -3.4, X1 = 3.4, Z0 = -12, Z1 = 7, H = 5.6;
-export const FEAT_Z = -3.2;
+/* Hallway scale closer to hyeok so walking feels good */
+export const X0 = -3.5, X1 = 3.5, Z0 = -14, Z1 = 8, H = 5.8;
+export const FEAT_Z = -5.05;
 export const BAY = { d: 0.48, h: 3.9, w: 2.05, base: 0.14, rows: 5 };
 BAY.rowH = (BAY.h - BAY.base - 0.2) / BAY.rows;
 export const rowY = (r) => BAY.base + r * BAY.rowH + (r > 0 ? 0.02 : 0);
@@ -114,6 +117,8 @@ export const SHELF_FRONT = X1 - BAY.d;
 
 let floorAccent = '#86afd8';
 let plaqueMesh = null;
+export let floorMesh = null;
+export const board = { group: null, canvas: null, tex: null };
 
 function makePlaqueTexture(year, color, count) {
   const [c, g] = cv(512, 256);
@@ -151,25 +156,51 @@ function bay(z) {
   }
 }
 
+function makeBoardTexture() {
+  const [c, g] = cv(512, 640);
+  g.fillStyle = '#f7ecda'; g.fillRect(0, 0, 512, 640);
+  g.fillStyle = '#2a2623'; g.fillRect(0, 0, 512, 72);
+  g.fillStyle = '#fbf1df'; g.font = '700 36px Gaegu, cursive'; g.textAlign = 'center';
+  g.fillText('年份書架', 256, 48);
+  g.fillStyle = '#8a705c'; g.font = '600 22px sans-serif';
+  g.fillText('撳我揀年份 · 跟住貓咪走', 256, 120);
+  const years = ['2012', '2013', '2014', '2018', '2023', '2024', '2025', '2026'];
+  years.forEach((y, i) => {
+    const yy = 160 + i * 52;
+    g.fillStyle = i % 2 ? '#efe0c8' : '#f4e8d4';
+    g.fillRect(48, yy, 416, 44);
+    g.fillStyle = '#3a2a20'; g.font = '800 28px Gaegu, cursive'; g.textAlign = 'left';
+    g.fillText(y, 72, yy + 32);
+    g.fillStyle = '#a8784f'; g.font = '600 18px sans-serif'; g.textAlign = 'right';
+    g.fillText('DSE 錯題 →', 440, yy + 30);
+  });
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 export function buildWorld() {
-  // room shell
-  box(X1 - X0 + 1, 0.12, Z1 - Z0 + 2, M.floor, 0, -0.06, (Z0 + Z1) / 2, scene, 0.01, false);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0 + 2, Z1 - Z0 + 2), M.floor);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(0, 0, (Z0 + Z1) / 2);
+  floor.receiveShadow = true;
+  scene.add(floor);
+  floorMesh = floor;
+
   box(1.2, 0.02, Z1 - Z0, M.rug, 0, 0.01, (Z0 + Z1) / 2 + 0.5, scene, 0.005, false);
   box(0.35, H, Z1 - Z0 + 1, M.plaster, X0 - 0.1, H / 2, (Z0 + Z1) / 2, scene, 0.01, false);
   box(0.35, H, Z1 - Z0 + 1, M.plasterBack, X1 + 0.1, H / 2, (Z0 + Z1) / 2, scene, 0.01, false);
   box(X1 - X0 + 1, 0.25, Z1 - Z0 + 1, M.ceiling, 0, H, (Z0 + Z1) / 2, scene, 0.01, false);
   box(X1 - X0 + 1, H, 0.3, M.plaster, 0, H / 2, Z0 - 0.1, scene, 0.01, false);
 
-  // trim
   box(0.08, H, Z1 - Z0, M.trim, X0 + 0.12, H / 2, (Z0 + Z1) / 2, scene, 0.01, false);
   box(0.08, H, Z1 - Z0, M.trim, X1 - 0.12, H / 2, (Z0 + Z1) / 2, scene, 0.01, false);
 
-  for (let z = 5.4; z > Z0 + 1.2; z -= 2.15) {
-    if (Math.abs(z - FEAT_Z) > 0.2) bay(z);
+  for (let z = 6.2; z > Z0 + 1.2; z -= 1.85) {
+    if (Math.abs(z - FEAT_Z) > 0.35) bay(z);
   }
   bay(FEAT_Z);
 
-  // feature plaque
   plaqueMesh = new THREE.Mesh(
     new THREE.PlaneGeometry(0.9, 0.45),
     new THREE.MeshStandardMaterial({ map: makePlaqueTexture('—', floorAccent, 0), roughness: 0.85 })
@@ -179,7 +210,29 @@ export function buildWorld() {
   scene.add(plaqueMesh);
   box(0.1, 0.025, 0.42, M.brass, SHELF_FRONT + 0.08, rowY(3) + 0.05, FEAT_Z + 0.55, scene, 0.008);
 
-  // lights
+  // Year directory board (lobby left)
+  board.tex = makeBoardTexture();
+  board.canvas = board.tex.image;
+  const g = new THREE.Group();
+  const face = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.92, 1.15),
+    new THREE.MeshStandardMaterial({ map: board.tex, roughness: 0.7 })
+  );
+  face.position.set(0, 0, 0.04);
+  g.add(face);
+  const frame = box(1.02, 1.25, 0.08, M.woodDark, 0, 0, 0, g, 0.02);
+  frame.castShadow = true;
+  g.position.set(-1.35, 1.35, 1.35);
+  g.rotation.y = 0.55;
+  g.userData.board = true;
+  scene.add(g);
+  board.group = g;
+
+  // Stairs arch hint at far end
+  box(2.4, 3.2, 0.2, M.woodDark, 0, 1.6, Z0 + 0.6, scene, 0.02);
+  box(0.35, 3.2, 0.35, M.wood, -1.3, 1.6, Z0 + 0.6, scene, 0.02);
+  box(0.35, 3.2, 0.35, M.wood, 1.3, 1.6, Z0 + 0.6, scene, 0.02);
+
   const hemi = new THREE.HemisphereLight('#fff4e4', '#c48a58', 0.55);
   scene.add(hemi);
   const sun = new THREE.DirectionalLight('#ffe7c0', 1.15);
@@ -187,29 +240,29 @@ export function buildWorld() {
   sun.castShadow = true;
   sun.shadow.mapSize.set(1024, 1024);
   sun.shadow.camera.near = 1;
-  sun.shadow.camera.far = 28;
-  sun.shadow.camera.left = -8;
-  sun.shadow.camera.right = 8;
-  sun.shadow.camera.top = 8;
-  sun.shadow.camera.bottom = -8;
+  sun.shadow.camera.far = 32;
+  sun.shadow.camera.left = -10;
+  sun.shadow.camera.right = 10;
+  sun.shadow.camera.top = 10;
+  sun.shadow.camera.bottom = -10;
   scene.add(sun);
-  const warm = new THREE.PointLight('#ffd9a8', 18, 14, 2);
+  const warm = new THREE.PointLight('#ffd9a8', 18, 16, 2);
   warm.position.set(-0.4, 3.2, FEAT_Z + 1.2);
   scene.add(warm);
 
-  // lobby sign
+  // Lobby hanging sign
   const [sc, sg] = cv(512, 256);
   sg.fillStyle = '#2a2623'; sg.fillRect(0, 0, 512, 256);
   sg.fillStyle = '#fbf1df'; sg.font = '700 42px Gaegu, cursive'; sg.textAlign = 'center';
   sg.fillText('6A 錯題書架', 256, 100);
   sg.font = '600 24px sans-serif'; sg.fillStyle = '#e2cdb2';
-  sg.fillText('按年份 · 個人錯題簿', 256, 160);
+  sg.fillText('跟着貓咪 · 按年份翻錯題', 256, 160);
   const signTex = new THREE.CanvasTexture(sc);
   signTex.colorSpace = THREE.SRGBColorSpace;
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), new THREE.MeshBasicMaterial({ map: signTex }));
-  sign.position.set(0, 2.1, 4.2);
+  sign.position.set(0.2, 2.35, 4.6);
   scene.add(sign);
-  box(1.7, 0.9, 0.08, M.woodDark, 0, 2.1, 4.15, scene, 0.02);
+  box(1.7, 0.9, 0.08, M.woodDark, 0.2, 2.35, 4.55, scene, 0.02);
 
   return { sun };
 }
@@ -222,5 +275,5 @@ export function resize() {
 }
 
 export function updateWorld() {
-  // reserved for subtle animation hooks
+  // reserved
 }

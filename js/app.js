@@ -1,41 +1,64 @@
 import * as THREE from 'three';
 import {
-  renderer, scene, camera, buildWorld, resize, updateWorld, dressFloor,
-  FEAT_Z, SHELF_FRONT, rowY, MOBILE,
+  QS, STILL, MOBILE, renderer, scene, camera, buildWorld, resize, updateWorld, dressFloor,
+  FEAT_Z, SHELF_FRONT, rowY, X0, X1, Z0, Z1, floorMesh, board,
 } from './world.js';
 import {
   YEAR_FLOORS, FLOOR, placeYearBooks, pdfUrl, formatSize, bookId,
 } from './books.js';
+import { createCat } from './cat.js';
 
 const $ = (id) => document.getElementById(id);
 const V3 = (...a) => new THREE.Vector3(...a);
+const canvasEl = renderer.domElement;
+
+/* Spots */
+const ENTRANCE = V3(0.12, 0, 2.55);
+const BOARD_STOP = V3(-0.35, 0, 1.2);
+const SHELF_STOP = V3(X1 - 1.25, 0, FEAT_Z + 0.05);
+const CAT_SEAT = V3(SHELF_FRONT + 0.24, rowY(3) + 0.003, FEAT_Z - 0.3);
+const HALL_X = 0.15;
+const STAIRS = V3(0.1, 0, Z0 + 1.2);
+const BOUNDS = { x0: X0 + 0.55, x1: X1 - 1.35, z0: Z0 + 1.4, z1: Z1 - 1.2 };
 
 let catalog = { meta: {}, items: [] };
-let mode = 'teacher'; // 'teacher' | 'student'
+let mode = 'teacher';
 let studentId = null;
 let currentYear = YEAR_FLOORS[0].key;
 let state = 'gate';
 let busy = false;
 let bookMeshes = [];
 let selected = null;
+let cat = null;
+let travelCam = null;
+let snapNext = true;
+let view = QS.get('cam') === 'third' ? 'third' : 'first';
+
 const bookGroup = new THREE.Group();
 scene.add(bookGroup);
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
+const camPos = new THREE.Vector3();
+const camLook = new THREE.Vector3();
+const lookNow = new THREE.Vector3();
+const keys = new Set();
+let joy = { x: 0, y: 0, active: false };
+let freeNav = false; // after hop-down from shelf seat
 
-const camPos = V3(0, 1.55, 5.2);
-const camLook = V3(0, 1.4, 0);
-const lobbyPos = V3(0, 1.55, 5.2);
-const lobbyLook = V3(0, 1.5, 3.5);
-const shelfPos = V3(SHELF_FRONT - 2.1, 1.55, FEAT_Z + 0.05);
-const shelfLook = V3(SHELF_FRONT, 1.45, FEAT_Z);
-
+const sleep = (ms) => new Promise((r) => setTimeout(r, STILL ? 0 : ms));
+function fade(on, ms = 500) {
+  const f = $('fade');
+  if (STILL) { f.style.transition = 'none'; f.classList.toggle('on', on); return Promise.resolve(); }
+  f.style.transitionDuration = `${ms}ms`;
+  f.classList.toggle('on', on);
+  return sleep(ms + 40);
+}
 function setState(s) {
   state = s;
   document.body.dataset.state = s;
+  syncMoveHint();
 }
-
 function toast(color, title, sub = '') {
   const el = $('toast');
   el.innerHTML = `<i style="background:${color}"></i><b>${title}</b>${sub ? `<span>${sub}</span>` : ''}`;
@@ -43,21 +66,83 @@ function toast(color, title, sub = '') {
   clearTimeout(toast._t);
   toast._t = setTimeout(() => el.classList.remove('show'), 2200);
 }
-
-function fade(on) {
-  $('fade').classList.toggle('on', !!on);
+function syncMoveHint() {
+  const pad = $('pad');
+  const move = $('moveHint');
+  const showPad = MOBILE && (state === 'intro' || (state === 'shelf' && freeNav) || state === 'roam');
+  if (pad) pad.hidden = !showPad;
+  if (move) {
+    const ok = state === 'intro' || state === 'roam' || (state === 'shelf' && freeNav);
+    move.hidden = !ok || MOBILE;
+  }
 }
 
+/* ---------- camera follow ---------- */
+function followPose(p = cat?.pos || ENTRANCE, yaw = cat?.yaw ?? 0.1) {
+  const fwd = V3(-Math.sin(yaw), 0, -Math.cos(yaw));
+  const right = V3(-fwd.z, 0, fwd.x);
+  if (view === 'third') {
+    camPos.copy(p).addScaledVector(fwd, -1.85).addScaledVector(right, 0.12); camPos.y = 0.82;
+    camLook.copy(p).addScaledVector(fwd, 5); camLook.y = 0.26;
+  } else {
+    camPos.copy(p).addScaledVector(fwd, -3.4).addScaledVector(right, 0.18); camPos.y = 1.42;
+    camLook.copy(p).addScaledVector(fwd, 5); camLook.y = 0.95;
+  }
+}
+function signPose() {
+  camPos.set(0.55, 1.45, 3.2);
+  camLook.set(-1.15, 1.1, 0.7);
+}
+function shelfPose() {
+  const portrait = camera.aspect < 0.9;
+  const vt = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const yMin = 0.76, yMax = 2.85;
+  const needH = (yMax - yMin) / (portrait ? 0.8 : 0.86);
+  const needW = 1.05;
+  let dist = Math.max(needH / (2 * vt), needW / (2 * vt * camera.aspect));
+  let cy = (yMin + yMax) / 2;
+  if (portrait) { dist = 1.45; cy = 1.45; }
+  camPos.set(SHELF_FRONT - dist, cy + 0.05, FEAT_Z);
+  camLook.set(SHELF_FRONT, cy, FEAT_Z);
+}
+const holdCam = () => {};
+const introCam = () => followPose(ENTRANCE, 0.1);
+const hallCam = (z) => () => { camPos.set(HALL_X + 0.1, 1.45, z + 2.6); camLook.set(0, 0.55, z - 4); };
+
+function targetPose() {
+  if (state === 'gate') { followPose(ENTRANCE, 0.1); return; }
+  if (state === 'sign') { signPose(); return; }
+  if (state === 'intro') { followPose(freeNav ? cat.pos : ENTRANCE, freeNav ? cat.yaw : 0.1); return; }
+  if (state === 'travel' && travelCam) { travelCam(); return; }
+  if (state === 'shelf' || state === 'book') {
+    if (freeNav) followPose(cat.pos, cat.yaw);
+    else shelfPose();
+    return;
+  }
+  if (state === 'roam') { followPose(cat.pos, cat.yaw); return; }
+  followPose();
+}
+function updateCamera(dt) {
+  camera.fov = camera.aspect < 0.9 ? 62 : 50;
+  camera.updateProjectionMatrix();
+  if (state === 'book' && !freeNav) return;
+  targetPose();
+  const k = snapNext || STILL ? 1 : 1 - Math.exp(-dt * (state === 'shelf' && !freeNav ? 3 : 4.5));
+  camera.position.lerp(camPos, k);
+  lookNow.lerp(camLook, k);
+  if (snapNext || STILL) { camera.position.copy(camPos); lookNow.copy(camLook); snapNext = false; }
+  camera.lookAt(lookNow);
+}
+
+/* ---------- catalog / shelf ---------- */
 function filteredItems(year = currentYear) {
   let list = catalog.items.filter((i) => i.year === year);
   if (mode === 'student' && studentId) list = list.filter((i) => i.student_id === studentId);
   return list;
 }
-
 function itemsForStudentAllYears(sid) {
   return catalog.items.filter((i) => i.student_id === sid);
 }
-
 function clearBooks() {
   while (bookGroup.children.length) {
     const m = bookGroup.children.pop();
@@ -67,7 +152,6 @@ function clearBooks() {
   }
   bookMeshes = [];
 }
-
 function rebuildShelf() {
   clearBooks();
   const floor = FLOOR[currentYear];
@@ -83,43 +167,113 @@ function rebuildShelf() {
   closeDesk();
 }
 
-async function goLobby() {
+/* ---------- travel ---------- */
+function hallPath(from, to) {
+  const dz = to.z - from.z, s = Math.sign(dz) || 1;
+  if (Math.abs(dz) < 1.6) return [from.clone(), from.clone().lerp(to, 0.5), to.clone()];
+  return [from.clone(), V3(HALL_X, 0, from.z + s * 0.7), V3(HALL_X, 0, to.z - s * 0.9), to.clone()];
+}
+function walkPath(pts, secs) {
+  const len = new THREE.CatmullRomCurve3(pts.map((p) => p.clone().setY(0)), false, 'centripetal', 0.3).getLength();
+  return cat.walk(pts, Math.min(2.6, Math.max(1.3, len / Math.max(0.4, secs))));
+}
+
+async function startFollow() {
+  if (state !== 'intro' || busy) return;
+  freeNav = false;
+  keys.clear();
+  setState('walk');
+  await cat.walk([cat.pos.clone(), V3(0.15, 0, 1.9), BOARD_STOP], 1.3);
+  cat.face(1.1);
+  setState('sign');
+  await sleep(320);
+  openFloorSheet();
+}
+
+async function travel(dest) {
   if (busy) return;
   busy = true;
+  freeNav = false;
+  keys.clear();
   closeSheet();
   closeDesk();
-  fade(true);
-  await sleep(280);
-  camPos.copy(lobbyPos);
-  camLook.copy(lobbyLook);
-  setState('lobby');
-  fade(false);
+  hideTip();
+  const toFloor = dest.kind === 'shelf' ? dest.floor : null;
+  const toStop = dest.kind === 'shelf' ? SHELF_STOP : ENTRANCE;
+  const from = state;
+  setState('travel');
+
+  travelCam = holdCam;
+  cat.sitTarget = 0;
+  if ((from === 'shelf' || from === 'book') && cat.pos.y > 0.2) {
+    await cat.hop(V3(X1 - 1.2, 0, FEAT_Z + 0.05), 480);
+  }
+
+  const newFloor = toFloor && toFloor !== currentYear;
+  if (newFloor) {
+    travelCam = hallCam(cat.pos.z);
+    cat.walk(hallPath(cat.pos, STAIRS), 2.4);
+    await sleep(1100);
+    await fade(true, 420);
+    cat.stop();
+    currentYear = toFloor;
+    rebuildShelf();
+    cat.set({ pos: V3(HALL_X, 0, toStop.z - 4.5), yaw: Math.PI, sit: 0, look: 0 });
+    travelCam = hallCam(toStop.z);
+    snapNext = true;
+    await sleep(50);
+    fade(false, 420);
+  } else if (dest.kind === 'intro') {
+    travelCam = introCam;
+    if (from === 'shelf' || from === 'book') snapNext = true;
+  } else {
+    travelCam = (from === 'shelf' || from === 'book') ? hallCam(Math.max(cat.pos.z, toStop.z)) : null;
+    if (toFloor) {
+      currentYear = toFloor;
+      rebuildShelf();
+    }
+  }
+
+  await walkPath(hallPath(cat.pos, toStop), newFloor ? 2.1 : 2.8);
+  travelCam = null;
+
+  if (dest.kind === 'shelf') {
+    cat.face(-Math.PI / 2);
+    await sleep(180);
+    setState('shelf');
+    freeNav = false;
+    const floor = FLOOR[currentYear];
+    toast(floor.color, floor.name, '到咗 · 撳書脊睇錯題簿');
+    await cat.hop(CAT_SEAT, 580);
+    cat.face(Math.PI / 2);
+    cat.sitTarget = 1;
+    cat.lookTarget = 0;
+  } else {
+    cat.face(0.1);
+    cat.lookTarget = 1;
+    setState('intro');
+    toast('#86afd8', '大堂', '跟着貓咪 · 或自由行');
+  }
   busy = false;
-  toast('#86afd8', '大堂', '開年份書架開始');
 }
 
-async function goShelf(yearKey) {
+function goFloor(key) {
+  const here = state === 'shelf' && currentYear === key && !freeNav;
+  if (here) { closeSheet(); return Promise.resolve(); }
+  return travel({ kind: 'shelf', floor: key });
+}
+function goLobby() {
+  if (state === 'intro' || state === 'gate' || state === 'walk') return;
   if (busy) return;
-  busy = true;
-  closeSheet();
-  currentYear = yearKey;
-  fade(true);
-  await sleep(260);
-  rebuildShelf();
-  camPos.copy(shelfPos);
-  camLook.copy(shelfLook);
-  setState('shelf');
-  fade(false);
-  busy = false;
-  const floor = FLOOR[yearKey];
-  toast(floor.color, floor.name, floor.title);
+  travel({ kind: 'intro' });
 }
 
+/* ---------- UI sheets / desk / pdf ---------- */
 function openFloorSheet() {
   const el = $('sheet');
   const rows = YEAR_FLOORS.map((f) => {
     const n = filteredItems(f.year).length;
-    const here = f.key === currentYear ? ' here' : '';
+    const here = f.key === currentYear && state === 'shelf' ? ' here' : '';
     const empty = n === 0 ? ' empty' : '';
     return `<button type="button" class="book${here}${empty}" data-year="${f.key}" style="--fc:${f.color}">
       <b>${f.name}</b><span>${f.title}</span><em>${n ? n + ' 本' : '空'}</em>
@@ -141,13 +295,11 @@ function openFloorSheet() {
     <div class="tower">${rows}<div class="plate"></div></div>`;
   el.classList.add('show');
 }
-
-function closeSheet() {
-  $('sheet').classList.remove('show');
-}
+function closeSheet() { $('sheet').classList.remove('show'); }
 
 function openDesk(item) {
   selected = item;
+  freeNav = false;
   const floor = FLOOR[item.year] || { color: '#86afd8' };
   const url = pdfUrl(item);
   const desk = $('desk');
@@ -167,13 +319,11 @@ function openDesk(item) {
   desk.classList.add('show');
   setState('book');
 }
-
 function closeDesk() {
   $('desk').classList.remove('show');
   selected = null;
   if (state === 'book') setState('shelf');
 }
-
 function openPdfViewer(item) {
   const url = pdfUrl(item);
   $('rSub').textContent = `${item.class} · ${item.year}`;
@@ -185,21 +335,40 @@ function openPdfViewer(item) {
   frame.src = url;
   $('reader').hidden = false;
 }
-
 function closePdfViewer() {
   $('reader').hidden = true;
   $('rFrame').src = 'about:blank';
 }
 
-function pickBook(e) {
-  const rect = renderer.domElement.getBoundingClientRect();
+/* ---------- picking ---------- */
+function aim(e) {
+  const rect = canvasEl.getBoundingClientRect();
   pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
   pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
+}
+function pickBook(e) {
+  aim(e);
   const hits = raycaster.intersectObjects(bookMeshes, false);
   return hits[0]?.object || null;
 }
-
+function pickFloor(e) {
+  if (!floorMesh) return null;
+  aim(e);
+  const hit = raycaster.intersectObject(floorMesh, false)[0];
+  return hit?.point || null;
+}
+function pickBoard(e) {
+  if (!board.group) return false;
+  aim(e);
+  return raycaster.intersectObject(board.group, true).length > 0;
+}
+function overCat(e) {
+  if (!cat || busy) return false;
+  if (!(state === 'sign' || state === 'shelf' || state === 'intro' || state === 'roam')) return false;
+  aim(e);
+  return raycaster.intersectObject(cat.root, true).length > 0;
+}
 function showTip(e, item) {
   const tip = $('tip');
   tip.innerHTML = `<b>學號 ${item.student_id}</b><span>${item.year} · ${item.pages || '?'} 頁</span>`;
@@ -207,11 +376,89 @@ function showTip(e, item) {
   tip.style.top = `${Math.min(e.clientY + 14, innerHeight - 70)}px`;
   tip.classList.add('show');
 }
-
 function hideTip() { $('tip').classList.remove('show'); }
 
-function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+/* ---------- free movement ---------- */
+function clampPos(p) {
+  p.x = Math.max(BOUNDS.x0, Math.min(BOUNDS.x1, p.x));
+  p.z = Math.max(BOUNDS.z0, Math.min(BOUNDS.z1, p.z));
+  p.y = 0;
+  return p;
+}
+function canFreeMove() {
+  return !busy && (state === 'intro' || state === 'roam' || (state === 'shelf' && freeNav));
+}
+async function ensureOnFloor() {
+  if (cat.pos.y > 0.15 || cat.sit > 0.4) {
+    cat.sitTarget = 0;
+    await cat.hop(SHELF_STOP.clone(), 480);
+    freeNav = true;
+    if (state === 'shelf' || state === 'book') setState('roam');
+  }
+}
+function applyFreeMove(dt) {
+  if (!canFreeMove() || cat.path || cat.hopState) return;
+  let dx = 0, dz = 0;
+  if (keys.has('KeyW') || keys.has('ArrowUp')) dz -= 1;
+  if (keys.has('KeyS') || keys.has('ArrowDown')) dz += 1;
+  if (keys.has('KeyA') || keys.has('ArrowLeft')) dx -= 1;
+  if (keys.has('KeyD') || keys.has('ArrowRight')) dx += 1;
+  if (joy.active) { dx += joy.x; dz += joy.y; }
+  if (Math.abs(dx) < 0.05 && Math.abs(dz) < 0.05) {
+    if (cat.moving && !cat.path) cat.moving = false;
+    return;
+  }
+  // camera-relative
+  const yaw = cat.yaw;
+  // move in world XZ relative to camera look on XZ
+  const camYaw = Math.atan2(
+    camera.position.x - (lookNow.x || cat.pos.x),
+    camera.position.z - (lookNow.z || cat.pos.z)
+  );
+  // Actually use camera forward projected
+  const fwd = new THREE.Vector3();
+  camera.getWorldDirection(fwd);
+  fwd.y = 0; fwd.normalize();
+  const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
+  const dir = fwd.multiplyScalar(-dz).add(right.multiplyScalar(dx));
+  if (dir.lengthSq() < 1e-6) return;
+  dir.normalize();
+  const speed = 1.55;
+  const next = cat.pos.clone().addScaledVector(dir, speed * dt);
+  clampPos(next);
+  cat.root.position.copy(next);
+  cat.yawTarget = Math.atan2(-dir.x, -dir.z);
+  cat.moving = true;
+  cat.phase += (speed * dt) / 0.16;
+  freeNav = true;
+}
+async function walkToPoint(pt) {
+  if (busy || !canFreeMove()) return;
+  if (cat.pos.y > 0.15) await ensureOnFloor();
+  const target = clampPos(pt.clone().setY(0));
+  const mid = cat.pos.clone().lerp(target, 0.5);
+  mid.x = THREE.MathUtils.clamp(mid.x, BOUNDS.x0, BOUNDS.x1);
+  await cat.walk([cat.pos.clone(), mid, target], 1.4);
+}
 
+/* ---------- pet ---------- */
+let petting = null;
+function petBurst() {
+  cat.pet(0.45);
+  cat.jiggle();
+  toast('#e0745a', '喵～', '摸摸頭');
+}
+
+/* ---------- gate ---------- */
+function beginPlay() {
+  $('gate').hidden = true;
+  freeNav = false;
+  cat.set({ pos: ENTRANCE, yaw: 0.1, sit: 0, look: 1 });
+  dressFloor(FLOOR[currentYear].year, FLOOR[currentYear].color, 0);
+  setState('intro');
+  snapNext = true;
+  toast('#86afd8', '歡迎', '跟着貓咪行 · 或用 WASD 自由行');
+}
 function enterAsStudent(raw) {
   const sid = String(raw || '').trim().padStart(2, '0');
   if (!/^\d{2}$/.test(sid) || +sid < 1 || +sid > 22) {
@@ -219,53 +466,146 @@ function enterAsStudent(raw) {
     return;
   }
   const mine = itemsForStudentAllYears(sid);
-  if (!mine.length) {
-    $('gateErr').textContent = `學號 ${sid} 暫時未有個人 PDF（仍可進入空架）`;
-  } else {
-    $('gateErr').textContent = '';
-  }
+  $('gateErr').textContent = mine.length ? '' : `學號 ${sid} 暫時未有個人 PDF（仍可進入空架）`;
   mode = 'student';
   studentId = sid;
   $('whoBtn').textContent = `學號 ${sid}`;
-  $('gate').hidden = true;
-  // prefer latest year that has a book
   const years = [...new Set(mine.map((i) => i.year))].sort();
-  const start = years.at(-1) || currentYear;
-  goShelf(start);
+  currentYear = years.at(-1) || currentYear;
+  beginPlay();
 }
-
 function enterAsTeacher() {
   mode = 'teacher';
   studentId = null;
   $('gateErr').textContent = '';
   $('whoBtn').textContent = '教師';
-  $('gate').hidden = true;
-  goShelf(currentYear);
+  beginPlay();
 }
-
 function showGate() {
   closePdfViewer();
   closeDesk();
   closeSheet();
+  freeNav = false;
+  keys.clear();
+  cat?.stop?.();
   $('gate').hidden = false;
   setState('gate');
-  camPos.copy(lobbyPos);
-  camLook.copy(lobbyLook);
+  cat?.set({ pos: ENTRANCE, yaw: 0.1, sit: 0, look: 1 });
+  snapNext = true;
 }
 
+/* ---------- events ---------- */
+let downAt = null;
 function onPointerMove(e) {
-  if (state !== 'shelf') { hideTip(); return; }
-  const obj = pickBook(e);
-  if (obj?.userData?.item) showTip(e, obj.userData.item);
-  else hideTip();
-  renderer.domElement.style.cursor = obj ? 'pointer' : 'default';
+  if (petting) {
+    const d = Math.hypot(e.clientX - petting.lx, e.clientY - petting.ly);
+    petting.lx = e.clientX; petting.ly = e.clientY; petting.dist += d;
+    if (d > 2) cat.pet(0.08);
+    return;
+  }
+  if (e.pointerType === 'touch') return;
+  if (overCat(e)) {
+    canvasEl.style.cursor = 'pointer';
+    hideTip();
+    return;
+  }
+  if (state === 'shelf' && !busy && !freeNav) {
+    const obj = pickBook(e);
+    if (obj?.userData?.item) showTip(e, obj.userData.item);
+    else hideTip();
+    canvasEl.style.cursor = obj ? 'pointer' : 'default';
+    return;
+  }
+  if ((state === 'intro' || state === 'sign') && !busy) {
+    canvasEl.style.cursor = pickBoard(e) ? 'pointer' : 'default';
+    return;
+  }
+  hideTip();
+  canvasEl.style.cursor = 'default';
+}
+function onPointerDown(e) {
+  downAt = { x: e.clientX, y: e.clientY };
+  if (overCat(e)) {
+    petting = { lx: e.clientX, ly: e.clientY, dist: 0 };
+    canvasEl.setPointerCapture(e.pointerId);
+  }
+}
+async function onPointerUp(e) {
+  if (petting) {
+    const tap = petting.dist < 8;
+    petting = null;
+    if (tap) petBurst();
+    return;
+  }
+  if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 10) return;
+  if (state === 'intro' && !busy) {
+    if (pickBoard(e)) { await startFollow(); return; }
+    // tap floor → walk there (free)
+    const pt = pickFloor(e);
+    if (pt) { freeNav = true; await walkToPoint(pt); return; }
+    await startFollow();
+    return;
+  }
+  if (state === 'sign' && !busy) {
+    if ($('sheet').classList.contains('show')) return;
+    openFloorSheet();
+    return;
+  }
+  if ((state === 'roam' || (state === 'shelf' && freeNav)) && !busy) {
+    const obj = pickBook(e);
+    if (obj?.userData?.item) { openDesk(obj.userData.item); return; }
+    const pt = pickFloor(e);
+    if (pt) await walkToPoint(pt);
+    return;
+  }
+  if (state === 'shelf' && !busy) {
+    const obj = pickBook(e);
+    if (obj?.userData?.item) openDesk(obj.userData.item);
+  }
 }
 
-async function onPointerDown(e) {
-  if (state !== 'shelf' || busy) return;
-  const obj = pickBook(e);
-  if (!obj?.userData?.item) return;
-  openDesk(obj.userData.item);
+function bindPad() {
+  const pad = $('pad');
+  if (!pad) return;
+  const stick = $('stick');
+  const base = pad.querySelector('.pad-base');
+  const setJoy = (cx, cy, px, py) => {
+    const dx = px - cx, dy = py - cy;
+    const max = 36;
+    const len = Math.hypot(dx, dy) || 1;
+    const k = Math.min(1, len / max);
+    joy.x = (dx / len) * k;
+    joy.y = (dy / len) * k;
+    joy.active = k > 0.08;
+    stick.style.transform = `translate(${(dx / len) * k * max}px, ${(dy / len) * k * max}px)`;
+  };
+  const clearJoy = () => {
+    joy = { x: 0, y: 0, active: false };
+    stick.style.transform = 'translate(0,0)';
+  };
+  let tracking = false;
+  const center = () => {
+    const r = base.getBoundingClientRect();
+    return [r.left + r.width / 2, r.top + r.height / 2];
+  };
+  pad.addEventListener('pointerdown', async (e) => {
+    e.preventDefault();
+    tracking = true;
+    pad.setPointerCapture(e.pointerId);
+    if (!freeNav && (state === 'shelf' || state === 'book')) await ensureOnFloor();
+    freeNav = true;
+    if (state === 'shelf') setState('roam');
+    const [cx, cy] = center();
+    setJoy(cx, cy, e.clientX, e.clientY);
+  });
+  pad.addEventListener('pointermove', (e) => {
+    if (!tracking) return;
+    const [cx, cy] = center();
+    setJoy(cx, cy, e.clientX, e.clientY);
+  });
+  const end = () => { tracking = false; clearJoy(); };
+  pad.addEventListener('pointerup', end);
+  pad.addEventListener('pointercancel', end);
 }
 
 function bindUi() {
@@ -274,16 +614,29 @@ function bindUi() {
   $('sidInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') enterAsStudent($('sidInput').value);
   });
-  $('floorBtn').onclick = () => openFloorSheet();
-  $('otherFloor').onclick = () => openFloorSheet();
+  $('floorBtn').onclick = () => { if (!busy) openFloorSheet(); };
+  $('otherFloor').onclick = () => { if (!busy) openFloorSheet(); };
   $('lobbyBtn').onclick = () => goLobby();
   $('whoBtn').onclick = () => showGate();
-  $('hint').onclick = () => openFloorSheet();
+  $('hint').onclick = () => startFollow();
   $('rClose').onclick = () => closePdfViewer();
+  $('exploreBtn')?.addEventListener('click', async () => {
+    if (busy) return;
+    if (state === 'shelf' || state === 'book') {
+      await ensureOnFloor();
+      freeNav = true;
+      setState('roam');
+      toast('#86afd8', '自由行', 'WASD／箭咀／撳地板');
+    }
+  });
   $('sheet').addEventListener('click', (e) => {
-    if (e.target.id === 'sheetClose') { closeSheet(); return; }
+    if (e.target.id === 'sheetClose') {
+      closeSheet();
+      if (state === 'sign') goLobby();
+      return;
+    }
     const y = e.target.closest('[data-year]')?.dataset.year;
-    if (y) { closeSheet(); goShelf(y); return; }
+    if (y) { closeSheet(); goFloor(y); return; }
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'relobby') { closeSheet(); goLobby(); }
     if (act === 'relogin') { closeSheet(); showGate(); }
@@ -292,41 +645,64 @@ function bindUi() {
     if (e.target.id === 'deskClose' || e.target.id === 'deskBack') { closeDesk(); return; }
     if (e.target.id === 'openPdf' && selected) openPdfViewer(selected);
   });
-  renderer.domElement.addEventListener('pointermove', onPointerMove);
-  renderer.domElement.addEventListener('pointerdown', onPointerDown);
-  addEventListener('resize', resize);
-  addEventListener('keydown', (e) => {
+  canvasEl.addEventListener('pointermove', onPointerMove);
+  canvasEl.addEventListener('pointerdown', onPointerDown);
+  canvasEl.addEventListener('pointerup', onPointerUp);
+  canvasEl.addEventListener('pointercancel', () => { petting = null; });
+  addEventListener('resize', () => { resize(); snapNext = true; });
+  addEventListener('keydown', async (e) => {
+    if (e.target.matches?.('input,textarea')) return;
     if (e.key === 'Escape') {
-      if (!$('reader').hidden) closePdfViewer();
-      else if ($('sheet').classList.contains('show')) closeSheet();
-      else if ($('desk').classList.contains('show')) closeDesk();
+      if (!$('reader').hidden) { closePdfViewer(); return; }
+      if ($('sheet').classList.contains('show')) { closeSheet(); if (state === 'sign') goLobby(); return; }
+      if ($('desk').classList.contains('show')) { closeDesk(); return; }
+    }
+    const moveKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+    if (moveKeys.includes(e.code)) {
+      e.preventDefault();
+      if (busy) return;
+      if (state === 'shelf' || state === 'book') {
+        if (!freeNav) {
+          await ensureOnFloor();
+          freeNav = true;
+          setState('roam');
+        }
+      }
+      if (state === 'intro' || state === 'roam' || (state === 'shelf' && freeNav)) {
+        freeNav = true;
+        keys.add(e.code);
+      }
     }
   });
+  addEventListener('keyup', (e) => { keys.delete(e.code); });
+  bindPad();
 }
 
-function animate() {
-  requestAnimationFrame(animate);
+/* ---------- loop ---------- */
+const clock = new THREE.Clock();
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const t = STILL ? 2 : clock.getElapsedTime();
+  applyFreeMove(dt);
+  cat.update(STILL ? 0.016 : dt, t);
+  updateCamera(STILL ? 1 : dt);
   updateWorld();
-  camera.position.lerp(camPos, 0.08);
-  const look = camLook.clone();
-  // subtle sway in lobby
-  if (state === 'lobby' || state === 'gate') {
-    look.x += Math.sin(performance.now() / 2800) * 0.05;
-  }
-  camera.lookAt(look);
   renderer.render(scene, camera);
+  requestAnimationFrame(loop);
 }
 
 async function boot() {
   buildWorld();
   resize();
+  cat = createCat(scene, STILL);
+  cat.set({ pos: ENTRANCE, yaw: 0.1, sit: 0, look: 1 });
   bindUi();
   try {
     const res = await fetch('catalog.json', { cache: 'no-store' });
     if (!res.ok) throw new Error(`catalog ${res.status}`);
     catalog = await res.json();
     if (!catalog.items) catalog = { meta: {}, items: catalog };
-    // sanity: probe one pdf
     const sample = catalog.items[0];
     if (sample) {
       const probe = await fetch(pdfUrl(sample), { method: 'HEAD' });
@@ -337,10 +713,11 @@ async function boot() {
     toast('#e0745a', '目錄讀取失敗', String(err.message || err));
   }
   dressFloor(FLOOR[currentYear].year, FLOOR[currentYear].color, 0);
-  camPos.copy(lobbyPos);
-  camLook.copy(lobbyLook);
+  setState('gate');
+  snapNext = true;
+  updateCamera(1);
   $('loading').classList.add('hide');
-  animate();
+  requestAnimationFrame((n) => { last = n; loop(n); });
 }
 
 boot();

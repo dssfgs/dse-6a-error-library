@@ -52,20 +52,65 @@
     }
     #floorBtn small { font: 700 10px/1 var(--sans); opacity: .8; }
     @keyframes ribbon { from { transform: translateY(-100%); } }
-    #lobbyBtn, #whoBtn {
+    #lobbyBtn, #whoBtn, #exploreBtn {
       order: 0; height: 38px; margin-top: calc(14px + env(safe-area-inset-top));
       padding: 0 13px; gap: 5px; font-size: 13px;
     }
     body[data-state="gate"] #floorBtn,
-    body[data-state="gate"] #lobbyBtn { display: none; }
-    body:not([data-state="shelf"]):not([data-state="book"]) #floorBtn { display: none; }
+    body[data-state="gate"] #lobbyBtn,
+    body[data-state="gate"] #whoBtn { display: none; }
+    body[data-state="intro"] #lobbyBtn,
+    body[data-state="walk"] #lobbyBtn,
+    body[data-state="gate"] #lobbyBtn,
+    body[data-state="travel"] #lobbyBtn { display: none; }
+    body[data-state="intro"] #floorBtn,
+    body[data-state="walk"] #floorBtn,
+    body[data-state="travel"] #floorBtn,
+    body[data-state="arrive"] #floorBtn,
+    body[data-state="gate"] #floorBtn { display: none; }
+    body[data-state="sign"] #lobbyBtn,
+    body[data-state="shelf"] #lobbyBtn,
+    body[data-state="book"] #lobbyBtn,
+    body[data-state="roam"] #lobbyBtn { display: inline-flex; }
 
     .hint {
       position: absolute; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom));
-      transform: translateX(-50%); padding: 12px 18px; font-size: 15px; white-space: nowrap;
-      transition: opacity .4s, transform .4s;
+      transform: translateX(-50%); padding: 12px 18px 12px 12px; font-size: 15px; white-space: nowrap;
+      transition: opacity .4s, transform .4s; gap: 10px;
     }
-    body:not([data-state="lobby"]) .hint { opacity: 0; pointer-events: none; transform: translate(-50%, 12px); }
+    .hint .paw { width: 28px; height: 28px; border-radius: 50%; background: #2a2623; display: grid; place-items: center; flex: none; }
+    .hint .paw svg { width: 19px; height: 19px; fill: #f4a9b6; }
+    .hint em { font-style: normal; color: #a8784f; font-weight: 600; font-size: 13px; }
+    body:not([data-state="intro"]) .hint { opacity: 0; pointer-events: none; transform: translate(-50%, 12px); }
+
+    .move-hint {
+      position: absolute; left: 14px; bottom: calc(24px + env(safe-area-inset-bottom));
+      padding: 8px 12px; font-size: 12px; font-weight: 700; color: var(--soft);
+    }
+    .move-hint kbd {
+      display: inline-block; min-width: 1.4em; padding: 1px 5px; margin: 0 1px;
+      border-radius: 6px; background: #f3e6d3; color: var(--ink); font: 700 11px var(--sans);
+      box-shadow: inset 0 -1px 0 rgba(90,50,20,.15);
+    }
+
+    .pad {
+      position: absolute; left: 18px; bottom: calc(28px + env(safe-area-inset-bottom));
+      width: 118px; height: 118px; touch-action: none; z-index: 5;
+    }
+    .pad-base {
+      position: absolute; inset: 0; border-radius: 50%;
+      background: rgba(255,248,238,.72); box-shadow: var(--shadow);
+      border: 2px solid rgba(138,100,70,.25);
+    }
+    .pad-stick {
+      position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px 0 0 -24px;
+      border-radius: 50%; background: #2a2623; box-shadow: 0 4px 10px rgba(0,0,0,.25);
+      transition: transform .05s linear;
+    }
+
+    #exploreBtn { display: none; }
+    body[data-state="shelf"] #exploreBtn,
+    body[data-state="book"] #exploreBtn { display: inline-flex; }
 
     .shelfbar {
       position: absolute; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom));
@@ -75,7 +120,7 @@
     }
     .shelfbar span { color: var(--soft); font-weight: 600; }
     .shelfbar button { border-radius: 999px; padding: 9px 14px; background: #2a2623; color: #fff8ee; font-weight: 700; font-size: 13px; }
-    body:not([data-state="shelf"]) .shelfbar { opacity: 0; pointer-events: none; transform: translate(-50%, 12px); }
+    body:not([data-state="shelf"]):not([data-state="roam"]) .shelfbar { opacity: 0; pointer-events: none; transform: translate(-50%, 12px); }
 
     .toast {
       position: absolute; left: 50%; top: calc(64px + env(safe-area-inset-top));
@@ -231,9 +276,15 @@
     <div class="tools">
       <button class="pill" id="whoBtn" type="button" title="切換身份">學生</button>
       <button class="pill" id="lobbyBtn" type="button">大堂</button>
+      <button class="pill" id="exploreBtn" type="button" title="自由行">自由行</button>
       <button class="pill" id="floorBtn" type="button"><b>2012</b><small>年份</small></button>
     </div>
-    <button class="hint pill" id="hint" type="button">撳書脊睇錯題簿 · 或開年份書架</button>
+    <button class="hint pill" id="hint" type="button"><span class="paw" aria-hidden="true"><svg viewBox="0 0 28 28"><ellipse cx="14" cy="18" rx="6.2" ry="5.2"/><ellipse cx="6.6" cy="11.2" rx="2.4" ry="3"/><ellipse cx="11.2" cy="7" rx="2.4" ry="3"/><ellipse cx="16.8" cy="7" rx="2.4" ry="3"/><ellipse cx="21.4" cy="11.2" rx="2.4" ry="3"/></svg></span>跟着貓咪行 · 撳一下開始 <em>或 WASD 自由行</em></button>
+    <div class="move-hint pill" id="moveHint" hidden><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 或箭咀移動 · 撳地板行過去</div>
+    <div class="pad" id="pad" hidden>
+      <div class="pad-base"></div>
+      <div class="pad-stick" id="stick"></div>
+    </div>
     <div class="toast" id="toast"></div>
     <div class="shelfbar pill"><span id="shelfHint">撳書脊打開個人錯題簿</span><button id="otherFloor" type="button">其他年份</button></div>
     <div class="tip" id="tip"></div>
@@ -242,7 +293,7 @@
     <div class="gate" id="gate">
       <div class="gate-card">
         <h1>6A 錯題書架</h1>
-        <p>輸入學號睇自己嘅錯題簿，或以教師模式瀏覽全班。</p>
+        <p>輸入學號睇自己嘅錯題簿，或以教師模式瀏覽全班。入去之後跟着黑貓行到年份書架。</p>
         <label for="sidInput">學號（01–22）</label>
         <input id="sidInput" inputmode="numeric" maxlength="2" placeholder="例如 07" autocomplete="off">
         <p class="gate-err" id="gateErr"></p>
