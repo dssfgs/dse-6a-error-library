@@ -43,7 +43,6 @@ const camPos = new THREE.Vector3();
 const camLook = new THREE.Vector3();
 const lookNow = new THREE.Vector3();
 const keys = new Set();
-let joy = { x: 0, y: 0, active: false };
 let freeNav = false; // after hop-down from shelf seat
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, STILL ? 0 : ms));
@@ -67,13 +66,10 @@ function toast(color, title, sub = '') {
   toast._t = setTimeout(() => el.classList.remove('show'), 2200);
 }
 function syncMoveHint() {
-  const pad = $('pad');
   const move = $('moveHint');
-  const showPad = MOBILE && (state === 'intro' || (state === 'shelf' && freeNav) || state === 'roam');
-  if (pad) pad.hidden = !showPad;
   if (move) {
     const ok = state === 'intro' || state === 'roam' || (state === 'shelf' && freeNav);
-    move.hidden = !ok || MOBILE;
+    move.hidden = !ok;
   }
 }
 
@@ -207,7 +203,7 @@ function hallPath(from, to) {
 }
 function walkPath(pts, secs) {
   const len = new THREE.CatmullRomCurve3(pts.map((p) => p.clone().setY(0)), false, 'centripetal', 0.3).getLength();
-  return cat.walk(pts, Math.min(2.6, Math.max(1.3, len / Math.max(0.4, secs))));
+  return cat.walk(pts, Math.min(4.4, Math.max(2.4, len / Math.max(0.35, secs))));
 }
 
 async function startFollow() {
@@ -215,7 +211,7 @@ async function startFollow() {
   freeNav = false;
   keys.clear();
   setState('walk');
-  await cat.walk([cat.pos.clone(), V3(0.15, 0, 1.9), BOARD_STOP], 1.3);
+  await cat.walk([cat.pos.clone(), V3(0.15, 0, 1.9), BOARD_STOP], 2.2);
   cat.face(1.1);
   setState('sign');
   await sleep(320);
@@ -254,7 +250,7 @@ async function travel(dest) {
     }
   }
 
-  await walkPath(hallPath(cat.pos, toStop), 2.6);
+  await walkPath(hallPath(cat.pos, toStop), 1.45);
   travelCam = null;
 
   if (dest.kind === 'shelf') {
@@ -263,7 +259,7 @@ async function travel(dest) {
     const floor = FLOOR[currentYear];
     toast(floor.color, floor.name, '到咗 · 撳書脊睇錯題簿');
     if (MOBILE) {
-      // Phone: stay on the floor so the joystick is usable immediately.
+      // Phone: stay on the floor for tap-to-walk.
       freeNav = true;
       cat.sitTarget = 0;
       cat.lookTarget = 0;
@@ -440,7 +436,6 @@ function applyFreeMove(dt) {
   if (keys.has('KeyS') || keys.has('ArrowDown')) dz += 1;
   if (keys.has('KeyA') || keys.has('ArrowLeft')) dx -= 1;
   if (keys.has('KeyD') || keys.has('ArrowRight')) dx += 1;
-  if (joy.active) { dx += joy.x; dz += joy.y; }
   if (Math.abs(dx) < 0.05 && Math.abs(dz) < 0.05) {
     if (cat.moving && !cat.path) cat.moving = false;
     return;
@@ -460,7 +455,7 @@ function applyFreeMove(dt) {
   const dir = fwd.multiplyScalar(-dz).add(right.multiplyScalar(dx));
   if (dir.lengthSq() < 1e-6) return;
   dir.normalize();
-  const speed = 1.55;
+  const speed = 2.95;
   const next = cat.pos.clone().addScaledVector(dir, speed * dt);
   clampPos(next);
   cat.root.position.copy(next);
@@ -475,7 +470,7 @@ async function walkToPoint(pt) {
   const target = clampPos(pt.clone().setY(0));
   const mid = cat.pos.clone().lerp(target, 0.5);
   mid.x = THREE.MathUtils.clamp(mid.x, BOUNDS.x0, BOUNDS.x1);
-  await cat.walk([cat.pos.clone(), mid, target], 1.4);
+  await cat.walk([cat.pos.clone(), mid, target], 2.5);
 }
 
 /* ---------- pet ---------- */
@@ -494,7 +489,7 @@ function beginPlay() {
   rebuildShelf();
   setState('intro');
   snapNext = true;
-  toast('#86afd8', '歡迎', '跟着貓咪 · 沿牆搵年份書 · 手機用搖杆');
+  toast('#86afd8', '歡迎', '跟着貓咪 · 沿牆搵年份書 · 撳地板行過去');
 }
 function enterAsStudent(raw) {
   const sid = String(raw || '').trim().padStart(2, '0');
@@ -610,49 +605,6 @@ async function onPointerUp(e) {
   }
 }
 
-function bindPad() {
-  const pad = $('pad');
-  if (!pad) return;
-  const stick = $('stick');
-  const base = pad.querySelector('.pad-base');
-  const setJoy = (cx, cy, px, py) => {
-    const dx = px - cx, dy = py - cy;
-    const max = 36;
-    const len = Math.hypot(dx, dy) || 1;
-    const k = Math.min(1, len / max);
-    joy.x = (dx / len) * k;
-    joy.y = (dy / len) * k;
-    joy.active = k > 0.08;
-    stick.style.transform = `translate(${(dx / len) * k * max}px, ${(dy / len) * k * max}px)`;
-  };
-  const clearJoy = () => {
-    joy = { x: 0, y: 0, active: false };
-    stick.style.transform = 'translate(0,0)';
-  };
-  let tracking = false;
-  const center = () => {
-    const r = base.getBoundingClientRect();
-    return [r.left + r.width / 2, r.top + r.height / 2];
-  };
-  pad.addEventListener('pointerdown', async (e) => {
-    e.preventDefault();
-    tracking = true;
-    pad.setPointerCapture(e.pointerId);
-    if (!freeNav && (state === 'shelf' || state === 'book')) await ensureOnFloor();
-    freeNav = true;
-    if (state === 'shelf') setState('roam');
-    const [cx, cy] = center();
-    setJoy(cx, cy, e.clientX, e.clientY);
-  });
-  pad.addEventListener('pointermove', (e) => {
-    if (!tracking) return;
-    const [cx, cy] = center();
-    setJoy(cx, cy, e.clientX, e.clientY);
-  });
-  const end = () => { tracking = false; clearJoy(); };
-  pad.addEventListener('pointerup', end);
-  pad.addEventListener('pointercancel', end);
-}
 
 function bindUi() {
   $('enterStudent').onclick = () => enterAsStudent($('sidInput').value);
@@ -672,7 +624,7 @@ function bindUi() {
       await ensureOnFloor();
       freeNav = true;
       setState('roam');
-      toast('#86afd8', '自由行', 'WASD／箭咀／撳地板');
+      toast('#86afd8', '自由行', 'WASD／箭咀／撳地板 · 行快咗');
     }
   });
   $('sheet').addEventListener('click', (e) => {
@@ -721,7 +673,6 @@ function bindUi() {
     }
   });
   addEventListener('keyup', (e) => { keys.delete(e.code); });
-  bindPad();
 }
 
 /* ---------- loop ---------- */
