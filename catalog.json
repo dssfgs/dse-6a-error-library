@@ -1,0 +1,1376 @@
+{
+  "meta": {
+    "class": "6A",
+    "updated": "2026-11-03T11:19:17.444436+00:00",
+    "source_dir": "/workspace/exports/dse-library-seed",
+    "count": 148,
+    "years": [
+      "2012",
+      "2013",
+      "2014",
+      "2018",
+      "2023",
+      "2024",
+      "2025",
+      "2026"
+    ],
+    "students": [
+      "01",
+      "02",
+      "03",
+      "04",
+      "05",
+      "06",
+      "07",
+      "08",
+      "09",
+      "10",
+      "11",
+      "12",
+      "13",
+      "14",
+      "15",
+      "16",
+      "17",
+      "18",
+      "19",
+      "20",
+      "21",
+      "22"
+    ]
+  },
+  "items": [
+    {
+      "class": "6A",
+      "student_id": "01",
+      "year": "2012",
+      "path": "6A/01/2012.pdf",
+      "pages": 14,
+      "size": 105088,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "01",
+      "year": "2013",
+      "path": "6A/01/2013.pdf",
+      "pages": 28,
+      "size": 128341,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "01",
+      "year": "2023",
+      "path": "6A/01/2023.pdf",
+      "pages": 18,
+      "size": 106489,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "01",
+      "year": "2024",
+      "path": "6A/01/2024.pdf",
+      "pages": 30,
+      "size": 132582,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "01",
+      "year": "2025",
+      "path": "6A/01/2025.pdf",
+      "pages": 38,
+      "size": 145458,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "01",
+      "year": "2026",
+      "path": "6A/01/2026.pdf",
+      "pages": 38,
+      "size": 148849,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "02",
+      "year": "2012",
+      "path": "6A/02/2012.pdf",
+      "pages": 34,
+      "size": 143240,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "02",
+      "year": "2013",
+      "path": "6A/02/2013.pdf",
+      "pages": 16,
+      "size": 106011,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "02",
+      "year": "2014",
+      "path": "6A/02/2014.pdf",
+      "pages": 22,
+      "size": 108535,
+      "source": "class-correction-2014.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "02",
+      "year": "2023",
+      "path": "6A/02/2023.pdf",
+      "pages": 20,
+      "size": 113879,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "02",
+      "year": "2024",
+      "path": "6A/02/2024.pdf",
+      "pages": 30,
+      "size": 134005,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "02",
+      "year": "2025",
+      "path": "6A/02/2025.pdf",
+      "pages": 34,
+      "size": 140768,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "02",
+      "year": "2026",
+      "path": "6A/02/2026.pdf",
+      "pages": 34,
+      "size": 139366,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "03",
+      "year": "2012",
+      "path": "6A/03/2012.pdf",
+      "pages": 26,
+      "size": 133619,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "03",
+      "year": "2013",
+      "path": "6A/03/2013.pdf",
+      "pages": 22,
+      "size": 115415,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "03",
+      "year": "2014",
+      "path": "6A/03/2014.pdf",
+      "pages": 18,
+      "size": 103442,
+      "source": "class-correction-2014.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "03",
+      "year": "2023",
+      "path": "6A/03/2023.pdf",
+      "pages": 18,
+      "size": 111581,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "03",
+      "year": "2024",
+      "path": "6A/03/2024.pdf",
+      "pages": 26,
+      "size": 128031,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "03",
+      "year": "2025",
+      "path": "6A/03/2025.pdf",
+      "pages": 34,
+      "size": 139311,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "03",
+      "year": "2026",
+      "path": "6A/03/2026.pdf",
+      "pages": 30,
+      "size": 139155,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "04",
+      "year": "2012",
+      "path": "6A/04/2012.pdf",
+      "pages": 26,
+      "size": 125755,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "04",
+      "year": "2013",
+      "path": "6A/04/2013.pdf",
+      "pages": 22,
+      "size": 117325,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "04",
+      "year": "2014",
+      "path": "6A/04/2014.pdf",
+      "pages": 14,
+      "size": 94817,
+      "source": "class-correction-2014.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "04",
+      "year": "2018",
+      "path": "6A/04/2018.pdf",
+      "pages": 12,
+      "size": 88829,
+      "source": "class-correction-2018.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "04",
+      "year": "2023",
+      "path": "6A/04/2023.pdf",
+      "pages": 10,
+      "size": 101624,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "04",
+      "year": "2024",
+      "path": "6A/04/2024.pdf",
+      "pages": 18,
+      "size": 116177,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "04",
+      "year": "2025",
+      "path": "6A/04/2025.pdf",
+      "pages": 24,
+      "size": 125931,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "04",
+      "year": "2026",
+      "path": "6A/04/2026.pdf",
+      "pages": 22,
+      "size": 118403,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "05",
+      "year": "2012",
+      "path": "6A/05/2012.pdf",
+      "pages": 30,
+      "size": 124685,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "05",
+      "year": "2013",
+      "path": "6A/05/2013.pdf",
+      "pages": 18,
+      "size": 117695,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "05",
+      "year": "2014",
+      "path": "6A/05/2014.pdf",
+      "pages": 12,
+      "size": 94289,
+      "source": "class-correction-2014.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "05",
+      "year": "2023",
+      "path": "6A/05/2023.pdf",
+      "pages": 14,
+      "size": 105972,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "05",
+      "year": "2024",
+      "path": "6A/05/2024.pdf",
+      "pages": 18,
+      "size": 113106,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "05",
+      "year": "2025",
+      "path": "6A/05/2025.pdf",
+      "pages": 28,
+      "size": 127156,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "05",
+      "year": "2026",
+      "path": "6A/05/2026.pdf",
+      "pages": 24,
+      "size": 123262,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "06",
+      "year": "2012",
+      "path": "6A/06/2012.pdf",
+      "pages": 20,
+      "size": 111904,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "06",
+      "year": "2013",
+      "path": "6A/06/2013.pdf",
+      "pages": 14,
+      "size": 97849,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "06",
+      "year": "2014",
+      "path": "6A/06/2014.pdf",
+      "pages": 8,
+      "size": 85909,
+      "source": "class-correction-2014.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "06",
+      "year": "2023",
+      "path": "6A/06/2023.pdf",
+      "pages": 14,
+      "size": 106143,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "06",
+      "year": "2024",
+      "path": "6A/06/2024.pdf",
+      "pages": 14,
+      "size": 107317,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "06",
+      "year": "2025",
+      "path": "6A/06/2025.pdf",
+      "pages": 20,
+      "size": 117200,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "06",
+      "year": "2026",
+      "path": "6A/06/2026.pdf",
+      "pages": 24,
+      "size": 122935,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "07",
+      "year": "2012",
+      "path": "6A/07/2012.pdf",
+      "pages": 42,
+      "size": 149011,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "07",
+      "year": "2013",
+      "path": "6A/07/2013.pdf",
+      "pages": 30,
+      "size": 126964,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "07",
+      "year": "2014",
+      "path": "6A/07/2014.pdf",
+      "pages": 24,
+      "size": 120200,
+      "source": "class-correction-2014.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "07",
+      "year": "2023",
+      "path": "6A/07/2023.pdf",
+      "pages": 24,
+      "size": 122648,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "07",
+      "year": "2024",
+      "path": "6A/07/2024.pdf",
+      "pages": 34,
+      "size": 138699,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "07",
+      "year": "2025",
+      "path": "6A/07/2025.pdf",
+      "pages": 42,
+      "size": 149683,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "07",
+      "year": "2026",
+      "path": "6A/07/2026.pdf",
+      "pages": 40,
+      "size": 155737,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "08",
+      "year": "2012",
+      "path": "6A/08/2012.pdf",
+      "pages": 10,
+      "size": 94340,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "08",
+      "year": "2013",
+      "path": "6A/08/2013.pdf",
+      "pages": 8,
+      "size": 77123,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "08",
+      "year": "2014",
+      "path": "6A/08/2014.pdf",
+      "pages": 6,
+      "size": 77991,
+      "source": "class-correction-2014.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "08",
+      "year": "2023",
+      "path": "6A/08/2023.pdf",
+      "pages": 4,
+      "size": 87606,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "08",
+      "year": "2024",
+      "path": "6A/08/2024.pdf",
+      "pages": 6,
+      "size": 96518,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "08",
+      "year": "2025",
+      "path": "6A/08/2025.pdf",
+      "pages": 14,
+      "size": 107670,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "08",
+      "year": "2026",
+      "path": "6A/08/2026.pdf",
+      "pages": 12,
+      "size": 99959,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "09",
+      "year": "2012",
+      "path": "6A/09/2012.pdf",
+      "pages": 20,
+      "size": 107303,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "09",
+      "year": "2013",
+      "path": "6A/09/2013.pdf",
+      "pages": 12,
+      "size": 89121,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "09",
+      "year": "2014",
+      "path": "6A/09/2014.pdf",
+      "pages": 4,
+      "size": 80613,
+      "source": "class-correction-2014.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "09",
+      "year": "2018",
+      "path": "6A/09/2018.pdf",
+      "pages": 8,
+      "size": 90254,
+      "source": "class-correction-2018.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "09",
+      "year": "2023",
+      "path": "6A/09/2023.pdf",
+      "pages": 10,
+      "size": 104523,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "09",
+      "year": "2024",
+      "path": "6A/09/2024.pdf",
+      "pages": 10,
+      "size": 101059,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "09",
+      "year": "2025",
+      "path": "6A/09/2025.pdf",
+      "pages": 14,
+      "size": 108974,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "09",
+      "year": "2026",
+      "path": "6A/09/2026.pdf",
+      "pages": 12,
+      "size": 106522,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "10",
+      "year": "2012",
+      "path": "6A/10/2012.pdf",
+      "pages": 14,
+      "size": 100545,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "10",
+      "year": "2013",
+      "path": "6A/10/2013.pdf",
+      "pages": 6,
+      "size": 85881,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "10",
+      "year": "2014",
+      "path": "6A/10/2014.pdf",
+      "pages": 8,
+      "size": 79911,
+      "source": "class-correction-2014.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "10",
+      "year": "2023",
+      "path": "6A/10/2023.pdf",
+      "pages": 12,
+      "size": 95454,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "10",
+      "year": "2024",
+      "path": "6A/10/2024.pdf",
+      "pages": 12,
+      "size": 107491,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "10",
+      "year": "2025",
+      "path": "6A/10/2025.pdf",
+      "pages": 16,
+      "size": 111756,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "10",
+      "year": "2026",
+      "path": "6A/10/2026.pdf",
+      "pages": 16,
+      "size": 101548,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "11",
+      "year": "2012",
+      "path": "6A/11/2012.pdf",
+      "pages": 28,
+      "size": 131025,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "11",
+      "year": "2013",
+      "path": "6A/11/2013.pdf",
+      "pages": 18,
+      "size": 114623,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "11",
+      "year": "2014",
+      "path": "6A/11/2014.pdf",
+      "pages": 16,
+      "size": 102020,
+      "source": "class-correction-2014.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "11",
+      "year": "2023",
+      "path": "6A/11/2023.pdf",
+      "pages": 20,
+      "size": 117287,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "11",
+      "year": "2024",
+      "path": "6A/11/2024.pdf",
+      "pages": 26,
+      "size": 123012,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "11",
+      "year": "2025",
+      "path": "6A/11/2025.pdf",
+      "pages": 30,
+      "size": 125317,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "11",
+      "year": "2026",
+      "path": "6A/11/2026.pdf",
+      "pages": 32,
+      "size": 141428,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "12",
+      "year": "2012",
+      "path": "6A/12/2012.pdf",
+      "pages": 2,
+      "size": 47913,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "12",
+      "year": "2013",
+      "path": "6A/12/2013.pdf",
+      "pages": 4,
+      "size": 74779,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "12",
+      "year": "2024",
+      "path": "6A/12/2024.pdf",
+      "pages": 2,
+      "size": 65500,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "12",
+      "year": "2025",
+      "path": "6A/12/2025.pdf",
+      "pages": 2,
+      "size": 68378,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "12",
+      "year": "2026",
+      "path": "6A/12/2026.pdf",
+      "pages": 2,
+      "size": 67410,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "13",
+      "year": "2012",
+      "path": "6A/13/2012.pdf",
+      "pages": 32,
+      "size": 138404,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "13",
+      "year": "2013",
+      "path": "6A/13/2013.pdf",
+      "pages": 20,
+      "size": 101222,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "13",
+      "year": "2014",
+      "path": "6A/13/2014.pdf",
+      "pages": 22,
+      "size": 114469,
+      "source": "class-correction-2014.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "13",
+      "year": "2023",
+      "path": "6A/13/2023.pdf",
+      "pages": 20,
+      "size": 117947,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "13",
+      "year": "2024",
+      "path": "6A/13/2024.pdf",
+      "pages": 34,
+      "size": 131458,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "13",
+      "year": "2025",
+      "path": "6A/13/2025.pdf",
+      "pages": 38,
+      "size": 144216,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "13",
+      "year": "2026",
+      "path": "6A/13/2026.pdf",
+      "pages": 40,
+      "size": 156672,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "14",
+      "year": "2012",
+      "path": "6A/14/2012.pdf",
+      "pages": 14,
+      "size": 101264,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "14",
+      "year": "2013",
+      "path": "6A/14/2013.pdf",
+      "pages": 12,
+      "size": 92662,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "14",
+      "year": "2023",
+      "path": "6A/14/2023.pdf",
+      "pages": 10,
+      "size": 101600,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "14",
+      "year": "2024",
+      "path": "6A/14/2024.pdf",
+      "pages": 18,
+      "size": 117432,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "14",
+      "year": "2025",
+      "path": "6A/14/2025.pdf",
+      "pages": 26,
+      "size": 129631,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "14",
+      "year": "2026",
+      "path": "6A/14/2026.pdf",
+      "pages": 18,
+      "size": 114794,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "15",
+      "year": "2012",
+      "path": "6A/15/2012.pdf",
+      "pages": 28,
+      "size": 133478,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "15",
+      "year": "2013",
+      "path": "6A/15/2013.pdf",
+      "pages": 22,
+      "size": 115031,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "15",
+      "year": "2014",
+      "path": "6A/15/2014.pdf",
+      "pages": 20,
+      "size": 100860,
+      "source": "class-correction-2014.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "15",
+      "year": "2023",
+      "path": "6A/15/2023.pdf",
+      "pages": 22,
+      "size": 110507,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "15",
+      "year": "2024",
+      "path": "6A/15/2024.pdf",
+      "pages": 16,
+      "size": 107700,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "15",
+      "year": "2025",
+      "path": "6A/15/2025.pdf",
+      "pages": 26,
+      "size": 129928,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "15",
+      "year": "2026",
+      "path": "6A/15/2026.pdf",
+      "pages": 14,
+      "size": 112812,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "16",
+      "year": "2012",
+      "path": "6A/16/2012.pdf",
+      "pages": 16,
+      "size": 107122,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "16",
+      "year": "2014",
+      "path": "6A/16/2014.pdf",
+      "pages": 10,
+      "size": 90263,
+      "source": "class-correction-2014.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "16",
+      "year": "2023",
+      "path": "6A/16/2023.pdf",
+      "pages": 10,
+      "size": 95840,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "16",
+      "year": "2024",
+      "path": "6A/16/2024.pdf",
+      "pages": 14,
+      "size": 104953,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "16",
+      "year": "2025",
+      "path": "6A/16/2025.pdf",
+      "pages": 22,
+      "size": 109243,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "16",
+      "year": "2026",
+      "path": "6A/16/2026.pdf",
+      "pages": 20,
+      "size": 125785,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "17",
+      "year": "2012",
+      "path": "6A/17/2012.pdf",
+      "pages": 34,
+      "size": 137438,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "17",
+      "year": "2013",
+      "path": "6A/17/2013.pdf",
+      "pages": 24,
+      "size": 123823,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "17",
+      "year": "2023",
+      "path": "6A/17/2023.pdf",
+      "pages": 22,
+      "size": 120066,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "17",
+      "year": "2024",
+      "path": "6A/17/2024.pdf",
+      "pages": 30,
+      "size": 132697,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "17",
+      "year": "2025",
+      "path": "6A/17/2025.pdf",
+      "pages": 26,
+      "size": 111963,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "17",
+      "year": "2026",
+      "path": "6A/17/2026.pdf",
+      "pages": 36,
+      "size": 146477,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "18",
+      "year": "2012",
+      "path": "6A/18/2012.pdf",
+      "pages": 8,
+      "size": 89111,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "18",
+      "year": "2013",
+      "path": "6A/18/2013.pdf",
+      "pages": 12,
+      "size": 91487,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "18",
+      "year": "2014",
+      "path": "6A/18/2014.pdf",
+      "pages": 4,
+      "size": 75276,
+      "source": "class-correction-2014.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "18",
+      "year": "2023",
+      "path": "6A/18/2023.pdf",
+      "pages": 12,
+      "size": 94461,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "18",
+      "year": "2024",
+      "path": "6A/18/2024.pdf",
+      "pages": 14,
+      "size": 107467,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "18",
+      "year": "2025",
+      "path": "6A/18/2025.pdf",
+      "pages": 28,
+      "size": 126970,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "18",
+      "year": "2026",
+      "path": "6A/18/2026.pdf",
+      "pages": 14,
+      "size": 111944,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "19",
+      "year": "2012",
+      "path": "6A/19/2012.pdf",
+      "pages": 20,
+      "size": 118194,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "19",
+      "year": "2013",
+      "path": "6A/19/2013.pdf",
+      "pages": 12,
+      "size": 89216,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "19",
+      "year": "2023",
+      "path": "6A/19/2023.pdf",
+      "pages": 12,
+      "size": 103353,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "19",
+      "year": "2024",
+      "path": "6A/19/2024.pdf",
+      "pages": 20,
+      "size": 121005,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "19",
+      "year": "2025",
+      "path": "6A/19/2025.pdf",
+      "pages": 22,
+      "size": 122223,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "19",
+      "year": "2026",
+      "path": "6A/19/2026.pdf",
+      "pages": 14,
+      "size": 108366,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "20",
+      "year": "2012",
+      "path": "6A/20/2012.pdf",
+      "pages": 10,
+      "size": 85398,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "20",
+      "year": "2013",
+      "path": "6A/20/2013.pdf",
+      "pages": 2,
+      "size": 23387,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "20",
+      "year": "2023",
+      "path": "6A/20/2023.pdf",
+      "pages": 2,
+      "size": 66680,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "20",
+      "year": "2024",
+      "path": "6A/20/2024.pdf",
+      "pages": 4,
+      "size": 84801,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "20",
+      "year": "2025",
+      "path": "6A/20/2025.pdf",
+      "pages": 6,
+      "size": 92851,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "20",
+      "year": "2026",
+      "path": "6A/20/2026.pdf",
+      "pages": 6,
+      "size": 93617,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "21",
+      "year": "2012",
+      "path": "6A/21/2012.pdf",
+      "pages": 8,
+      "size": 82726,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "21",
+      "year": "2013",
+      "path": "6A/21/2013.pdf",
+      "pages": 6,
+      "size": 84665,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "21",
+      "year": "2014",
+      "path": "6A/21/2014.pdf",
+      "pages": 2,
+      "size": 63789,
+      "source": "class-correction-2014.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "21",
+      "year": "2023",
+      "path": "6A/21/2023.pdf",
+      "pages": 6,
+      "size": 71740,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "21",
+      "year": "2024",
+      "path": "6A/21/2024.pdf",
+      "pages": 10,
+      "size": 101586,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "21",
+      "year": "2025",
+      "path": "6A/21/2025.pdf",
+      "pages": 12,
+      "size": 102062,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "21",
+      "year": "2026",
+      "path": "6A/21/2026.pdf",
+      "pages": 10,
+      "size": 102859,
+      "source": "class-correction-2026.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "22",
+      "year": "2012",
+      "path": "6A/22/2012.pdf",
+      "pages": 15,
+      "size": 102408,
+      "source": "class-correction-2012.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "22",
+      "year": "2013",
+      "path": "6A/22/2013.pdf",
+      "pages": 7,
+      "size": 76349,
+      "source": "class-correction-2013.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "22",
+      "year": "2014",
+      "path": "6A/22/2014.pdf",
+      "pages": 5,
+      "size": 81819,
+      "source": "class-correction-2014.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "22",
+      "year": "2023",
+      "path": "6A/22/2023.pdf",
+      "pages": 11,
+      "size": 102511,
+      "source": "class-correction-2023.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "22",
+      "year": "2024",
+      "path": "6A/22/2024.pdf",
+      "pages": 12,
+      "size": 99676,
+      "source": "class-correction-2024.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "22",
+      "year": "2025",
+      "path": "6A/22/2025.pdf",
+      "pages": 16,
+      "size": 113281,
+      "source": "class-correction-2025.pdf"
+    },
+    {
+      "class": "6A",
+      "student_id": "22",
+      "year": "2026",
+      "path": "6A/22/2026.pdf",
+      "pages": 17,
+      "size": 113479,
+      "source": "class-correction-2026.pdf"
+    }
+  ]
+}
