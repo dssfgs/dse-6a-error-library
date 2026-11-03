@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FEAT_Z, SHELF_FRONT, rowY, BAY, rgeo } from './world.js';
+import { SHELF_FRONT, rowY, rgeo, yearBayZ } from './world.js';
 
 export const YEAR_FLOORS = [
   { key: '2012', year: '2012', name: '2012', title: 'DSE 2012 錯題', color: '#86b98f' },
@@ -178,40 +178,32 @@ export function makeBookMesh(item, yearColor) {
   return mesh;
 }
 
-/** Place books for one year on the feature bay. Returns meshes. */
-export function placeYearBooks(items, yearColor, parent) {
-  const list = [...items].sort((a, b) => a.student_id.localeCompare(b.student_id));
-  // Eye-level first (hyeok: row 2, then 1). Cat sits on row 3; avoid row 4 so shelfPose sees spines.
-  // Fill order prefers mid shelves; only spill to 0/4 when a year is huge.
-  let rows;
-  if (list.length <= 4) rows = [2];
-  else if (list.length <= 7) rows = [2, 1];
-  else if (list.length <= 24) rows = [2, 1, 3];
-  else if (list.length <= 40) rows = [2, 1, 3, 0];
-  else rows = [2, 1, 3, 0, 4];
-
+/**
+ * Place one book per year at that year's wall bay (game discovery along the hall).
+ * `items` should already be capped to ≤1 book per year.
+ */
+export function placeWallBooks(items, parent) {
   const meshes = [];
-  const gap = 0.012;
-  const per = Math.max(1, Math.ceil(list.length / rows.length));
-
-  const placeOnRow = (slice, shelfRow) => {
-    if (!slice.length) return;
-    const y = rowY(shelfRow) + 0.01;
-    const z0 = FEAT_Z;
-    const totalT = slice.reduce((s, m) => s + m.userData.dims.t, 0) + gap * Math.max(0, slice.length - 1);
-    let z = -totalT / 2;
-    for (const m of slice) {
-      const { t, h, d } = m.userData.dims;
-      m.position.set(SHELF_FRONT - d / 2 - 0.01, y + h / 2, z0 + z + t / 2);
-      parent.add(m);
-      meshes.push(m);
-      z += t + gap;
-    }
-  };
-
-  const made = list.map((item) => makeBookMesh(item, yearColor));
-  rows.forEach((r, i) => placeOnRow(made.slice(i * per, (i + 1) * per), r));
+  const list = [...items].sort((a, b) => String(a.year).localeCompare(String(b.year)));
+  for (const item of list) {
+    const yearColor = (FLOOR[item.year] || FLOOR[YEAR_FLOORS[0].key]).color;
+    const m = makeBookMesh(item, yearColor);
+    const { t, h, d } = m.userData.dims;
+    const z0 = yearBayZ(item.year);
+    // Slight row variety so years feel like different wall slots, still eye-level.
+    const row = 1 + (hash(String(item.year)) % 3); // 1, 2, or 3
+    const y = rowY(row) + 0.01;
+    m.position.set(SHELF_FRONT - d / 2 - 0.01, y + h / 2, z0);
+    m.userData.bayZ = z0;
+    parent.add(m);
+    meshes.push(m);
+  }
   return meshes;
+}
+
+/** @deprecated alias — one-year dump no longer used; routes to placeWallBooks. */
+export function placeYearBooks(items, yearColor, parent) {
+  return placeWallBooks(items, parent);
 }
 
 export function pdfUrl(item) {

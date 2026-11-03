@@ -115,8 +115,35 @@ BAY.rowH = (BAY.h - BAY.base - 0.2) / BAY.rows;
 export const rowY = (r) => BAY.base + r * BAY.rowH + (r > 0 ? 0.02 : 0);
 export const SHELF_FRONT = X1 - BAY.d;
 
+/** Stable bay Z centers along the right wall (matches buildWorld bay loop). */
+export const BAY_ZS = (() => {
+  const zs = [];
+  for (let z = 6.2; z > Z0 + 1.2; z -= 1.85) {
+    if (Math.abs(z - FEAT_Z) > 0.35) zs.push(Number(z.toFixed(2)));
+  }
+  zs.push(FEAT_Z);
+  return zs.sort((a, b) => b - a);
+})();
+
+/** Each exam year lives on its own bay — walk the hall to discover them. */
+export const YEAR_BAY_Z = {
+  2012: 2.5,
+  2013: 0.65,
+  2014: -1.2,
+  2018: -3.05,
+  2023: -5.05,
+  2024: -6.75,
+  2025: -8.6,
+  2026: -10.45,
+};
+export function yearBayZ(year) {
+  const z = YEAR_BAY_Z[String(year)];
+  return z == null ? FEAT_Z : z;
+}
+
 let floorAccent = '#86afd8';
 let plaqueMesh = null;
+let plaqueBrass = null;
 export let floorMesh = null;
 export const board = { group: null, canvas: null, tex: null };
 
@@ -135,15 +162,18 @@ function makePlaqueTexture(year, color, count) {
   return t;
 }
 
-export function dressFloor(year, color, count = 0) {
+export function dressFloor(year, color, count = 0, bayZ = null) {
   floorAccent = color;
   scene.background = new THREE.Color('#ffe9c8');
+  const z = bayZ == null ? yearBayZ(year) : bayZ;
   if (plaqueMesh) {
     const old = plaqueMesh.material.map;
     plaqueMesh.material.map = makePlaqueTexture(year, color, count);
     plaqueMesh.material.needsUpdate = true;
     old?.dispose();
+    plaqueMesh.position.set(SHELF_FRONT + 0.03, rowY(3) + 0.28, z + 0.55);
   }
+  if (plaqueBrass) plaqueBrass.position.set(SHELF_FRONT + 0.08, rowY(3) + 0.05, z + 0.55);
 }
 
 function bay(z) {
@@ -208,7 +238,7 @@ export function buildWorld() {
   plaqueMesh.rotation.y = -Math.PI / 2;
   plaqueMesh.position.set(SHELF_FRONT + 0.03, rowY(3) + 0.28, FEAT_Z + 0.55);
   scene.add(plaqueMesh);
-  box(0.1, 0.025, 0.42, M.brass, SHELF_FRONT + 0.08, rowY(3) + 0.05, FEAT_Z + 0.55, scene, 0.008);
+  plaqueBrass = box(0.1, 0.025, 0.42, M.brass, SHELF_FRONT + 0.08, rowY(3) + 0.05, FEAT_Z + 0.55, scene, 0.008);
 
   // Year directory board (lobby left)
   board.tex = makeBoardTexture();

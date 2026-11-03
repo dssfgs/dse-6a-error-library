@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import {
   QS, STILL, MOBILE, renderer, scene, camera, buildWorld, resize, updateWorld, dressFloor,
-  FEAT_Z, SHELF_FRONT, rowY, X0, X1, Z0, Z1, floorMesh, board,
+  SHELF_FRONT, rowY, X0, X1, Z0, Z1, floorMesh, board, yearBayZ,
 } from './world.js';
 import {
-  YEAR_FLOORS, FLOOR, placeYearBooks, pdfUrl, formatSize, bookId,
+  YEAR_FLOORS, FLOOR, placeWallBooks, pdfUrl, formatSize, bookId,
 } from './books.js';
 import { createCat } from './cat.js';
 
@@ -15,11 +15,11 @@ const canvasEl = renderer.domElement;
 /* Spots */
 const ENTRANCE = V3(0.12, 0, 2.55);
 const BOARD_STOP = V3(-0.35, 0, 1.2);
-const SHELF_STOP = V3(X1 - 1.25, 0, FEAT_Z + 0.05);
-const CAT_SEAT = V3(SHELF_FRONT + 0.24, rowY(3) + 0.003, FEAT_Z - 0.3);
 const HALL_X = 0.15;
 const STAIRS = V3(0.1, 0, Z0 + 1.2);
 const BOUNDS = { x0: X0 + 0.55, x1: X1 - 1.35, z0: Z0 + 1.4, z1: Z1 - 1.2 };
+const shelfStop = (year = currentYear) => V3(X1 - 1.25, 0, yearBayZ(year) + 0.05);
+const catSeat = (year = currentYear) => V3(SHELF_FRONT + 0.24, rowY(3) + 0.003, yearBayZ(year) - 0.3);
 
 let catalog = { meta: {}, items: [] };
 let mode = 'teacher';
@@ -110,8 +110,12 @@ function shelfPose() {
     cy = Math.min(yMax - 0.35, Math.max(yMin + 0.35, cy * 0.45 + avgY * 0.55));
   }
   if (portrait) { dist = 1.45; cy = bookMeshes.length ? Math.min(1.65, Math.max(1.25, cy)) : 1.45; }
-  camPos.set(SHELF_FRONT - dist, cy + 0.05, FEAT_Z);
-  camLook.set(SHELF_FRONT, cy, FEAT_Z);
+  const z = yearBayZ(currentYear);
+  // Prefer the active year's book height when present.
+  const mine = bookMeshes.find((m) => String(m.userData?.item?.year) === String(currentYear));
+  if (mine) cy = THREE.MathUtils.clamp(mine.position.y, yMin + 0.25, yMax - 0.25);
+  camPos.set(SHELF_FRONT - dist, cy + 0.05, z);
+  camLook.set(SHELF_FRONT, cy, z);
 }
 const holdCam = () => {};
 const introCam = () => followPose(ENTRANCE, 0.1);
@@ -151,6 +155,22 @@ function filteredItems(year = currentYear) {
 function itemsForStudentAllYears(sid) {
   return catalog.items.filter((i) => i.student_id === sid);
 }
+/** One book per year for the wall: student's own, or teacher representative (prefer 01). */
+function wallItems() {
+  const out = [];
+  for (const f of YEAR_FLOORS) {
+    let list = catalog.items.filter((i) => i.year === f.year);
+    if (mode === 'student' && studentId) {
+      list = list.filter((i) => i.student_id === studentId);
+      if (list[0]) out.push(list[0]);
+      continue;
+    }
+    list = [...list].sort((a, b) => a.student_id.localeCompare(b.student_id));
+    const pick = list.find((i) => i.student_id === '01') || list[0];
+    if (pick) out.push(pick);
+  }
+  return out;
+}
 function clearBooks() {
   while (bookGroup.children.length) {
     const m = bookGroup.children.pop();
@@ -160,18 +180,22 @@ function clearBooks() {
   }
   bookMeshes = [];
 }
-function rebuildShelf() {
-  clearBooks();
+function syncFloorChrome() {
   const floor = FLOOR[currentYear];
-  const items = filteredItems();
-  dressFloor(floor.year, floor.color, items.length);
-  bookMeshes = placeYearBooks(items, floor.color, bookGroup);
+  const nHere = bookMeshes.filter((m) => String(m.userData?.item?.year) === String(currentYear)).length;
+  dressFloor(floor.year, floor.color, nHere, yearBayZ(currentYear));
   $('floorBtn').style.setProperty('--fcd', floor.color);
   $('floorBtn').innerHTML = `<b>${floor.name}</b><small>年份</small>`;
-  const who = mode === 'student' ? `學號 ${studentId}` : '全班';
-  $('shelfHint').textContent = items.length
-    ? `${floor.year} · ${who} · ${items.length} 本`
-    : `${floor.year} · 暫時未有錯題簿`;
+  const who = mode === 'student' ? `學號 ${studentId}` : '教師代表冊';
+  const nWall = bookMeshes.length;
+  $('shelfHint').textContent = nWall
+    ? `沿牆 ${nWall} 個年份 · ${who} · 而家 ${floor.year}`
+    : '暫時未有錯題簿';
+}
+function rebuildShelf() {
+  clearBooks();
+  bookMeshes = placeWallBooks(wallItems(), bookGroup);
+  syncFloorChrome();
   closeDesk();
 }
 
@@ -207,55 +231,53 @@ async function travel(dest) {
   closeDesk();
   hideTip();
   const toFloor = dest.kind === 'shelf' ? dest.floor : null;
-  const toStop = dest.kind === 'shelf' ? SHELF_STOP : ENTRANCE;
+  const toStop = dest.kind === 'shelf' ? shelfStop(toFloor || currentYear) : ENTRANCE;
   const from = state;
   setState('travel');
 
   travelCam = holdCam;
   cat.sitTarget = 0;
-  if ((from === 'shelf' || from === 'book') && cat.pos.y > 0.2) {
-    await cat.hop(V3(X1 - 1.2, 0, FEAT_Z + 0.05), 480);
+  if ((from === 'shelf' || from === 'book' || from === 'roam') && cat.pos.y > 0.2) {
+    await cat.hop(V3(X1 - 1.2, 0, cat.pos.z), 480);
   }
 
-  const newFloor = toFloor && toFloor !== currentYear;
-  if (newFloor) {
-    travelCam = hallCam(cat.pos.z);
-    cat.walk(hallPath(cat.pos, STAIRS), 2.4);
-    await sleep(1100);
-    await fade(true, 420);
-    cat.stop();
-    currentYear = toFloor;
-    rebuildShelf();
-    cat.set({ pos: V3(HALL_X, 0, toStop.z - 4.5), yaw: Math.PI, sit: 0, look: 0 });
-    travelCam = hallCam(toStop.z);
-    snapNext = true;
-    await sleep(50);
-    fade(false, 420);
-  } else if (dest.kind === 'intro') {
+  // All years live on one continuous wall — walk the hall, no floor fade.
+  if (dest.kind === 'intro') {
     travelCam = introCam;
-    if (from === 'shelf' || from === 'book') snapNext = true;
+    if (from === 'shelf' || from === 'book' || from === 'roam') snapNext = true;
   } else {
-    travelCam = (from === 'shelf' || from === 'book') ? hallCam(Math.max(cat.pos.z, toStop.z)) : null;
+    travelCam = hallCam(toStop.z);
     if (toFloor) {
       currentYear = toFloor;
-      rebuildShelf();
+      if (!bookMeshes.length) rebuildShelf();
+      else syncFloorChrome();
     }
   }
 
-  await walkPath(hallPath(cat.pos, toStop), newFloor ? 2.1 : 2.8);
+  await walkPath(hallPath(cat.pos, toStop), 2.6);
   travelCam = null;
 
   if (dest.kind === 'shelf') {
     cat.face(-Math.PI / 2);
     await sleep(180);
-    setState('shelf');
-    freeNav = false;
     const floor = FLOOR[currentYear];
     toast(floor.color, floor.name, '到咗 · 撳書脊睇錯題簿');
-    await cat.hop(CAT_SEAT, 580);
-    cat.face(Math.PI / 2);
-    cat.sitTarget = 1;
-    cat.lookTarget = 0;
+    if (MOBILE) {
+      // Phone: stay on the floor so the joystick is usable immediately.
+      freeNav = true;
+      cat.sitTarget = 0;
+      cat.lookTarget = 0;
+      cat.set({ pos: shelfStop(), yaw: -Math.PI / 2, sit: 0, look: 0 });
+      setState('roam');
+      snapNext = true;
+    } else {
+      freeNav = false;
+      setState('shelf');
+      await cat.hop(catSeat(), 580);
+      cat.face(Math.PI / 2);
+      cat.sitTarget = 1;
+      cat.lookTarget = 0;
+    }
   } else {
     cat.face(0.1);
     cat.lookTarget = 1;
@@ -266,8 +288,14 @@ async function travel(dest) {
 }
 
 function goFloor(key) {
-  const here = state === 'shelf' && currentYear === key && !freeNav;
-  if (here) { closeSheet(); return Promise.resolve(); }
+  const near = (state === 'shelf' || state === 'roam') && currentYear === key
+    && Math.abs(cat.pos.z - yearBayZ(key)) < 0.85 && !busy;
+  if (near && !freeNav) { closeSheet(); return Promise.resolve(); }
+  if (near && freeNav && Math.abs(cat.pos.z - yearBayZ(key)) < 0.45) {
+    closeSheet();
+    syncFloorChrome();
+    return Promise.resolve();
+  }
   return travel({ kind: 'shelf', floor: key });
 }
 function goLobby() {
@@ -276,24 +304,25 @@ function goLobby() {
   travel({ kind: 'intro' });
 }
 
+
 /* ---------- UI sheets / desk / pdf ---------- */
 function openFloorSheet() {
   const el = $('sheet');
   const rows = YEAR_FLOORS.map((f) => {
     const n = filteredItems(f.year).length;
-    const here = f.key === currentYear && state === 'shelf' ? ' here' : '';
+    const here = f.key === currentYear && (state === 'shelf' || state === 'roam' || state === 'book') ? ' here' : '';
     const empty = n === 0 ? ' empty' : '';
     return `<button type="button" class="book${here}${empty}" data-year="${f.key}" style="--fc:${f.color}">
       <b>${f.name}</b><span>${f.title}</span><em>${n ? n + ' 本' : '空'}</em>
     </button>`;
   }).join('');
   const whoLine = mode === 'student'
-    ? `而家以學號 <b>${studentId}</b> 瀏覽（只顯示你嘅冊）`
-    : '教師模式：每層顯示該年全班個人冊';
+    ? `學號 <b>${studentId}</b>：牆上每年一本你嘅冊，行過去打開`
+    : '教師模式：牆上每年一本代表冊（優先學號 01）；目錄數字係全班份數';
   el.innerHTML = `
     <div class="grab"></div>
     <header>
-      <div><h2>揀年份書架</h2><p>${whoLine}</p></div>
+      <div><h2>揀年份（沿牆）</h2><p>${whoLine}</p></div>
       <button type="button" class="x" id="sheetClose">✕</button>
     </header>
     <div class="modechip">
@@ -399,7 +428,7 @@ function canFreeMove() {
 async function ensureOnFloor() {
   if (cat.pos.y > 0.15 || cat.sit > 0.4) {
     cat.sitTarget = 0;
-    await cat.hop(SHELF_STOP.clone(), 480);
+    await cat.hop(shelfStop().clone(), 480);
     freeNav = true;
     if (state === 'shelf' || state === 'book') setState('roam');
   }
@@ -462,10 +491,10 @@ function beginPlay() {
   $('gate').hidden = true;
   freeNav = false;
   cat.set({ pos: ENTRANCE, yaw: 0.1, sit: 0, look: 1 });
-  dressFloor(FLOOR[currentYear].year, FLOOR[currentYear].color, 0);
+  rebuildShelf();
   setState('intro');
   snapNext = true;
-  toast('#86afd8', '歡迎', '跟着貓咪行 · 或用 WASD 自由行');
+  toast('#86afd8', '歡迎', '跟着貓咪 · 沿牆搵年份書 · 手機用搖杆');
 }
 function enterAsStudent(raw) {
   const sid = String(raw || '').trim().padStart(2, '0');
@@ -561,14 +590,23 @@ async function onPointerUp(e) {
   }
   if ((state === 'roam' || (state === 'shelf' && freeNav)) && !busy) {
     const obj = pickBook(e);
-    if (obj?.userData?.item) { openDesk(obj.userData.item); return; }
+    if (obj?.userData?.item) {
+      currentYear = String(obj.userData.item.year);
+      syncFloorChrome();
+      openDesk(obj.userData.item);
+      return;
+    }
     const pt = pickFloor(e);
     if (pt) await walkToPoint(pt);
     return;
   }
   if (state === 'shelf' && !busy) {
     const obj = pickBook(e);
-    if (obj?.userData?.item) openDesk(obj.userData.item);
+    if (obj?.userData?.item) {
+      currentYear = String(obj.userData.item.year);
+      syncFloorChrome();
+      openDesk(obj.userData.item);
+    }
   }
 }
 

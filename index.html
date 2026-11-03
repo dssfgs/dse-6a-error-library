@@ -31,7 +31,8 @@
     button { cursor: pointer; border: 0; }
     #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
     .ui { position: fixed; inset: 0; pointer-events: none; }
-    .ui button, .ui a, .sheet, .desk, .gate, .ui input, .reader { pointer-events: auto; }
+    .ui button, .ui a, .sheet, .desk, .gate, .ui input, .reader,
+    .pad, .shelfbar, .tools, .hint, .move-hint { pointer-events: auto; }
     .pill { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; background: var(--cream); box-shadow: var(--shadow); font-weight: 700; }
 
     .brand {
@@ -279,7 +280,7 @@
       <button class="pill" id="exploreBtn" type="button" title="自由行">自由行</button>
       <button class="pill" id="floorBtn" type="button"><b>2012</b><small>年份</small></button>
     </div>
-    <button class="hint pill" id="hint" type="button"><span class="paw" aria-hidden="true"><svg viewBox="0 0 28 28"><ellipse cx="14" cy="18" rx="6.2" ry="5.2"/><ellipse cx="6.6" cy="11.2" rx="2.4" ry="3"/><ellipse cx="11.2" cy="7" rx="2.4" ry="3"/><ellipse cx="16.8" cy="7" rx="2.4" ry="3"/><ellipse cx="21.4" cy="11.2" rx="2.4" ry="3"/></svg></span>跟着貓咪行 · 撳一下開始 <em>或 WASD 自由行</em></button>
+    <button class="hint pill" id="hint" type="button"><span class="paw" aria-hidden="true"><svg viewBox="0 0 28 28"><ellipse cx="14" cy="18" rx="6.2" ry="5.2"/><ellipse cx="6.6" cy="11.2" rx="2.4" ry="3"/><ellipse cx="11.2" cy="7" rx="2.4" ry="3"/><ellipse cx="16.8" cy="7" rx="2.4" ry="3"/><ellipse cx="21.4" cy="11.2" rx="2.4" ry="3"/></svg></span>跟着貓咪 · 沿牆搵年份書 <em>手機用搖杆</em></button>
     <div class="move-hint pill" id="moveHint" hidden><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 或箭咀移動 · 撳地板行過去</div>
     <div class="pad" id="pad" hidden>
       <div class="pad-base"></div>
