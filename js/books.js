@@ -63,7 +63,7 @@ function bookDims(item) {
 const clothOf = (item) => CLOTH[hash(bookId(item)) % CLOTH.length];
 
 function spineTexture(item, dims, yearColor) {
-  const W = 128;
+  const W = 160;
   const H = Math.round((W * dims.h) / dims.t);
   const [c, g] = canvas(W, H);
   const bg = clothOf(item);
@@ -72,29 +72,36 @@ function spineTexture(item, dims, yearColor) {
   g.fillStyle = bg; g.fillRect(0, 0, W, H);
   grain(g, W, H, 2.5);
 
-  const labelH = 110, labelY = H - labelH - 18;
+  // Colour band at top so the year block pops from down the hall.
+  g.fillStyle = yearColor;
+  g.fillRect(0, 0, W, 28);
+
+  const footH = 96;
+  const footY = H - footH - 14;
   g.fillStyle = light ? 'rgba(120,85,55,.45)' : 'rgba(255,248,232,.75)';
-  rrect(g, 14, 22, W - 28, 4, 2); g.fill();
-  rrect(g, 14, labelY - 18, W - 28, 4, 2); g.fill();
+  rrect(g, 16, 40, W - 32, 5, 2); g.fill();
+  rrect(g, 16, footY - 16, W - 32, 5, 2); g.fill();
 
-  g.fillStyle = ink; g.textAlign = 'center'; g.textBaseline = 'top';
-  g.font = `800 46px ${SANS}`;
-  const sid = String(item.student_id).padStart(2, '0');
-  const chars = [...sid];
-  let y = 48;
-  chars.forEach((ch) => { g.fillText(ch, W / 2, y); y += 52; });
-  g.font = `700 22px ${SANS}`;
-  g.fillText('學號', W / 2, y + 4);
+  // Year is the hero: tall digits down the spine.
+  const year = String(item.year);
+  g.fillStyle = ink; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = `900 72px ${SANS}`;
+  const span = footY - 56;
+  const step = span / year.length;
+  let y = 56 + step / 2;
+  [...year].forEach((ch) => { g.fillText(ch, W / 2, y); y += step; });
 
+  // Small foot label: class / student / pages — not the year.
   g.fillStyle = '#fffaf0';
-  rrect(g, 10, labelY, W - 20, labelH, 10); g.fill();
-  g.save(); rrect(g, 10, labelY, W - 20, labelH, 10); g.clip();
-  g.fillStyle = yearColor; g.fillRect(10, labelY, W - 20, 16);
+  rrect(g, 10, footY, W - 20, footH, 12); g.fill();
+  g.save(); rrect(g, 10, footY, W - 20, footH, 12); g.clip();
+  g.fillStyle = yearColor; g.fillRect(10, footY, W - 20, 14);
   g.restore();
-  g.fillStyle = INK; g.textAlign = 'center';
-  g.font = `800 24px ${SANS}`; g.fillText(item.year, W / 2, labelY + 28);
-  g.font = `700 20px ${SANS}`; g.fillText(item.class, W / 2, labelY + 58);
-  g.font = `600 18px ${SANS}`; g.fillText(`${item.pages || '?'}頁`, W / 2, labelY + 86);
+  g.fillStyle = INK; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  const sid = String(item.student_id).padStart(2, '0');
+  g.font = `800 28px ${SANS}`; g.fillText(`學號 ${sid}`, W / 2, footY + 42);
+  g.font = `700 20px ${SANS}`; g.fillText(item.class, W / 2, footY + 68);
+  g.font = `600 18px ${SANS}`; g.fillText(`${item.pages || '?'}頁`, W / 2, footY + 88);
 
   const grd = g.createLinearGradient(0, 0, W, 0);
   grd.addColorStop(0, 'rgba(90,60,40,.18)');
@@ -103,6 +110,37 @@ function spineTexture(item, dims, yearColor) {
   grd.addColorStop(1, 'rgba(90,60,40,.18)');
   g.fillStyle = grd; g.fillRect(0, 0, W, H);
   return tex(c);
+}
+
+function yearTagTexture(year, yearColor) {
+  const W = 512, H = 192;
+  const [c, g] = canvas(W, H);
+  g.clearRect(0, 0, W, H);
+  // Soft plate so the year reads from halfway down the hall.
+  g.fillStyle = 'rgba(47, 38, 32, 0.82)';
+  rrect(g, 16, 16, W - 32, H - 32, 28); g.fill();
+  g.fillStyle = yearColor;
+  rrect(g, 16, 16, 28, H - 32, 14); g.fill();
+  g.fillStyle = '#fffaf0';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = `900 118px ${SANS}`;
+  g.fillText(String(year), W / 2 + 8, H / 2 + 4);
+  const t = tex(c);
+  t.premultiplyAlpha = true;
+  return t;
+}
+
+function makeYearTag(year, yearColor) {
+  const map = yearTagTexture(year, yearColor);
+  const mat = new THREE.MeshBasicMaterial({
+    map,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.21), mat);
+  mesh.userData.yearTag = true;
+  return mesh;
 }
 
 function coverTexture(item, dims, yearColor) {
@@ -117,9 +155,11 @@ function coverTexture(item, dims, yearColor) {
   g.lineWidth = 3;
   rrect(g, 34, 34, W - 68, Hh - 68, 20); g.stroke();
   g.fillStyle = yearColor;
-  rrect(g, 70, 70, W - 140, 42, 16); g.fill();
-  g.fillStyle = '#fff'; g.font = `700 24px ${SANS}`; g.textAlign = 'center';
-  g.fillText(`${item.year} 錯題簿`, W / 2, 98);
+  rrect(g, 56, 56, W - 112, 78, 20); g.fill();
+  g.fillStyle = '#fff'; g.font = `900 52px ${SANS}`; g.textAlign = 'center';
+  g.fillText(String(item.year), W / 2, 108);
+  g.font = `700 26px ${SANS}`;
+  g.fillText('錯題簿', W / 2, 140);
   g.fillStyle = ink; g.font = `800 56px ${SANS}`;
   g.fillText(`學號 ${String(item.student_id).padStart(2, '0')}`, W / 2, Hh * 0.42);
   g.font = `600 26px ${SANS}`;
@@ -197,6 +237,12 @@ export function placeWallBooks(items, parent) {
     m.userData.bayZ = z0;
     parent.add(m);
     meshes.push(m);
+
+    // Large aisle-facing year plate — readable before you reach the bay.
+    const tag = makeYearTag(item.year, yearColor);
+    tag.rotation.y = -Math.PI / 2;
+    tag.position.set(SHELF_FRONT - 0.02, y + h + 0.18, z0);
+    parent.add(tag);
   }
   return meshes;
 }

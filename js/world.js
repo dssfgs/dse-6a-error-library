@@ -148,15 +148,15 @@ export let floorMesh = null;
 export const board = { group: null, canvas: null, tex: null };
 
 function makePlaqueTexture(year, color, count) {
-  const [c, g] = cv(512, 256);
-  g.fillStyle = '#f7ecda'; g.fillRect(0, 0, 512, 256);
-  g.fillStyle = color; g.fillRect(0, 0, 512, 42);
-  g.fillStyle = '#fffaf0'; g.font = '700 28px sans-serif'; g.textAlign = 'center';
-  g.fillText('6A 錯題書架', 256, 30);
-  g.fillStyle = '#3a2a20'; g.font = '800 72px Gaegu, cursive';
-  g.fillText(String(year), 256, 130);
-  g.fillStyle = '#8a705c'; g.font = '600 26px sans-serif';
-  g.fillText(count ? `${count} 本個人錯題簿` : '暫時未有冊子', 256, 190);
+  const [c, g] = cv(640, 320);
+  g.fillStyle = '#f7ecda'; g.fillRect(0, 0, 640, 320);
+  g.fillStyle = color; g.fillRect(0, 0, 640, 52);
+  g.fillStyle = '#fffaf0'; g.font = '700 32px sans-serif'; g.textAlign = 'center';
+  g.fillText('6A 錯題書架', 320, 36);
+  g.fillStyle = '#3a2a20'; g.font = '900 128px Gaegu, cursive';
+  g.fillText(String(year), 320, 175);
+  g.fillStyle = '#8a705c'; g.font = '600 28px sans-serif';
+  g.fillText(count ? `${count} 本個人錯題簿` : '暫時未有冊子', 320, 250);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
@@ -196,13 +196,13 @@ function makeBoardTexture() {
   g.fillText('撳我揀年份 · 跟住貓咪走', 256, 120);
   const years = ['2012', '2013', '2014', '2018', '2023', '2024', '2025', '2026'];
   years.forEach((y, i) => {
-    const yy = 160 + i * 52;
+    const yy = 150 + i * 56;
     g.fillStyle = i % 2 ? '#efe0c8' : '#f4e8d4';
-    g.fillRect(48, yy, 416, 44);
-    g.fillStyle = '#3a2a20'; g.font = '800 28px Gaegu, cursive'; g.textAlign = 'left';
-    g.fillText(y, 72, yy + 32);
-    g.fillStyle = '#a8784f'; g.font = '600 18px sans-serif'; g.textAlign = 'right';
-    g.fillText('DSE 錯題 →', 440, yy + 30);
+    g.fillRect(40, yy, 432, 50);
+    g.fillStyle = '#3a2a20'; g.font = '900 40px Gaegu, cursive'; g.textAlign = 'left';
+    g.fillText(y, 64, yy + 36);
+    g.fillStyle = '#a8784f'; g.font = '600 20px sans-serif'; g.textAlign = 'right';
+    g.fillText('DSE 錯題 →', 448, yy + 34);
   });
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
@@ -232,7 +232,7 @@ export function buildWorld() {
   bay(FEAT_Z);
 
   plaqueMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.9, 0.45),
+    new THREE.PlaneGeometry(1.15, 0.58),
     new THREE.MeshStandardMaterial({ map: makePlaqueTexture('—', floorAccent, 0), roughness: 0.85 })
   );
   plaqueMesh.rotation.y = -Math.PI / 2;
