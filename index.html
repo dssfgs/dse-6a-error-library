@@ -310,10 +310,179 @@
       .sheet { left: auto; right: 28px; width: 420px; bottom: 22px; border-radius: 26px; transform: translateY(calc(100% + 48px)); }
       .sheet.show { transform: none; }
     }
+
+    /* ===== Library split layout (primary UI after gate) ===== */
+    body.library #c {
+      filter: brightness(0.42) saturate(0.55) contrast(0.95);
+      pointer-events: none; /* UI panels own all clicks in library mode */
+    }
+    body.library .lib-veil {
+      display: block;
+    }
+    .lib-veil {
+      display: none; position: fixed; inset: 0; z-index: 3;
+      background: radial-gradient(ellipse at 50% 40%, rgba(255,248,238,.55), rgba(242,216,176,.82) 70%);
+      pointer-events: none;
+    }
+    .year-table, .book-rail {
+      position: fixed; z-index: 6;
+      top: calc(58px + env(safe-area-inset-top));
+      bottom: calc(72px + env(safe-area-inset-bottom));
+      display: flex; flex-direction: column;
+      padding: 16px 14px 14px;
+      border-radius: 22px;
+      background: var(--cream);
+      box-shadow: var(--shadow);
+      outline: 1.5px dashed rgba(138, 100, 70, .28);
+      outline-offset: -7px;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s, transform .25s;
+    }
+    body.library .year-table,
+    body.library .book-rail {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .year-table {
+      left: 14px;
+      width: min(360px, calc(50vw - 22px));
+      transform: translateX(-12px);
+    }
+    .book-rail {
+      right: 14px;
+      width: min(360px, calc(50vw - 22px));
+      transform: translateX(12px);
+      background: #fff6e6;
+    }
+    body.library .year-table,
+    body.library .book-rail { transform: none; }
+
+    .year-table[hidden], .book-rail[hidden] { display: none !important; }
+
+    .year-table header, .book-rail header {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+      flex: none; padding: 0 4px 12px; border-bottom: 1px solid var(--line);
+    }
+    .year-table header h2, .book-rail header h2 {
+      margin: 0; font: 700 24px/1.1 var(--cute), cursive; letter-spacing: -0.02em;
+    }
+    .year-table header span, .book-rail header span {
+      font-size: 12px; font-weight: 700; color: var(--soft);
+    }
+
+    .year-table .yt-list {
+      list-style: none; margin: 10px 0 0; padding: 0;
+      flex: 1; overflow: auto; -webkit-overflow-scrolling: touch;
+    }
+    .year-table .yt-row {
+      display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
+      margin: 0 0 8px; padding: 8px; border-radius: 16px;
+      background: #fffaf3; box-shadow: inset 0 0 0 1.5px var(--line);
+    }
+    .year-table .yt-row.on {
+      background: color-mix(in srgb, var(--fc, #86afd8) 22%, #fffaf3);
+      box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--coral);
+    }
+    .year-table .yt-main {
+      display: grid; grid-template-columns: 58px 1fr; gap: 4px 10px; align-items: center;
+      width: 100%; margin: 0; padding: 6px 8px; border-radius: 12px;
+      background: transparent; text-align: left; font-weight: 700;
+    }
+    .year-table .yt-main:hover { background: rgba(255, 243, 224, .9); }
+    .year-table .yt-year { font: 800 22px/1 var(--cute), cursive; color: var(--ink); }
+    .year-table .yt-meta { font-size: 12px; line-height: 1.35; color: var(--soft); font-weight: 600; }
+    .year-table .yt-meta b { color: var(--ink); font-weight: 800; }
+    .year-table .yt-acts { display: flex; flex-direction: column; gap: 5px; }
+    .year-table .yt-acts button {
+      padding: 7px 12px; border-radius: 999px; font-size: 12px; font-weight: 800;
+      background: #2a2623; color: var(--cream); white-space: nowrap;
+    }
+    .year-table .yt-acts button.ghost { background: #f3e6d3; color: var(--ink); }
+    .year-table .yt-acts button:disabled { opacity: .38; cursor: not-allowed; }
+
+    .book-rail .br-list {
+      flex: 1; overflow: auto; -webkit-overflow-scrolling: touch;
+      display: grid; grid-template-columns: 1fr; gap: 10px;
+      margin-top: 12px; padding: 2px 2px 8px;
+    }
+    .book-rail .br-card {
+      display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center;
+      width: 100%; padding: 12px; border-radius: 18px;
+      background: #fffaf3; text-align: left;
+      box-shadow: inset 0 0 0 1.5px var(--line), 0 4px 12px rgba(90,50,20,.08);
+      transition: transform .12s, box-shadow .12s;
+      cursor: pointer;
+    }
+    .book-rail .br-card:hover {
+      transform: translateY(-2px);
+      box-shadow: inset 0 0 0 1.5px var(--line), 0 8px 18px rgba(90,50,20,.14);
+    }
+    .book-rail .br-card:active { transform: translateY(0); }
+    .book-rail .br-card.on {
+      box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--coral), 0 6px 14px rgba(90,50,20,.12);
+    }
+    .book-rail .br-spine {
+      width: 64px; height: 88px; border-radius: 8px 12px 12px 8px;
+      background: linear-gradient(90deg, rgba(0,0,0,.14), transparent 18%), var(--fc, #86afd8);
+      color: #fffaf0; display: grid; place-items: center; text-align: center;
+      font: 800 14px/1.2 var(--sans); padding: 6px;
+      box-shadow: inset -4px 0 0 rgba(0,0,0,.1), 3px 4px 10px rgba(90,50,20,.2);
+    }
+    .book-rail .br-body b { display: block; font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
+    .book-rail .br-body span { display: block; margin-top: 4px; font-size: 12px; line-height: 1.35; color: var(--soft); font-weight: 600; }
+    .book-rail .br-empty {
+      margin: 28px 10px; text-align: center; color: var(--soft); font-weight: 700; font-size: 13px; line-height: 1.5;
+    }
+
+    body.library .shelfbar {
+      z-index: 7; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom));
+      max-width: min(520px, calc(100vw - 28px));
+    }
+    body.library #floorBtn,
+    body.library #exploreBtn,
+    body.library #lobbyBtn,
+    body.library .hint,
+    body.library .move-hint { display: none !important; }
+
+    .desk { z-index: 8; }
+    .toast { z-index: 9; }
+    .reader { z-index: 40; }
+
+    @media (max-width: 900px) {
+      .year-table, .book-rail {
+        top: calc(54px + env(safe-area-inset-top));
+        bottom: calc(64px + env(safe-area-inset-bottom));
+        width: calc(50vw - 16px);
+        padding: 12px 10px 10px;
+      }
+      .year-table { left: 8px; }
+      .book-rail { right: 8px; }
+      .year-table header h2, .book-rail header h2 { font-size: 20px; }
+      .book-rail .br-spine { width: 52px; height: 72px; font-size: 12px; }
+      .year-table .yt-acts button { padding: 6px 9px; font-size: 11px; }
+    }
+    @media (max-width: 560px) {
+      /* Stack: table top, books bottom */
+      .year-table {
+        left: 8px; right: 8px; width: auto;
+        top: calc(52px + env(safe-area-inset-top));
+        bottom: calc(50% + 4px);
+      }
+      .book-rail {
+        left: 8px; right: 8px; width: auto;
+        top: calc(50% + 4px);
+        bottom: calc(60px + env(safe-area-inset-bottom));
+      }
+      .book-rail .br-list { grid-template-columns: 1fr 1fr; }
+    }
+
   </style>
 </head>
 <body data-state="gate">
   <canvas id="c"></canvas>
+  <div class="lib-veil" id="libVeil" aria-hidden="true"></div>
   <div class="ui">
     <div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v16H4zm10 0h6v16h-6z"/><path d="M10 6h4v2h-4zm0 4h4v2h-4zm0 4h4v2h-4z" fill="#fff8ee"/></svg>6A 錯題書架</div>
     <div class="tools">
@@ -322,7 +491,7 @@
       <button class="pill" id="exploreBtn" type="button" title="自由行">自由行</button>
       <button class="pill" id="floorBtn" type="button"><b>2012</b><small>年份</small></button>
     </div>
-    <button class="hint pill" id="hint" type="button"><span class="paw" aria-hidden="true"><svg viewBox="0 0 28 28"><ellipse cx="14" cy="18" rx="6.2" ry="5.2"/><ellipse cx="6.6" cy="11.2" rx="2.4" ry="3"/><ellipse cx="11.2" cy="7" rx="2.4" ry="3"/><ellipse cx="16.8" cy="7" rx="2.4" ry="3"/><ellipse cx="21.4" cy="11.2" rx="2.4" ry="3"/></svg></span>左邊總表揀年份 · 右邊撳書開 PDF</button>
+    <button class="hint pill" id="hint" type="button"><span class="paw" aria-hidden="true"><svg viewBox="0 0 28 28"><ellipse cx="14" cy="18" rx="6.2" ry="5.2"/><ellipse cx="6.6" cy="11.2" rx="2.4" ry="3"/><ellipse cx="11.2" cy="7" rx="2.4" ry="3"/><ellipse cx="16.8" cy="7" rx="2.4" ry="3"/><ellipse cx="21.4" cy="11.2" rx="2.4" ry="3"/></svg></span>左邊總表 · 右邊撳書卡開 PDF</button>
     <div class="move-hint pill" id="moveHint" hidden><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 或箭咀移動 · 撳地板行過去</div>
     <div class="toast" id="toast"></div>
     <aside class="year-table" id="yearTable" aria-label="年份總表" hidden>
@@ -339,7 +508,7 @@
       </header>
       <div class="br-list" id="brList"></div>
     </aside>
-    <div class="shelfbar pill"><span id="shelfHint">左邊總表揀年份 · 右邊撳書開 PDF</span><button id="otherFloor" type="button" hidden>其他年份</button></div>
+    <div class="shelfbar pill"><span id="shelfHint">左邊總表 · 右邊撳書卡開 PDF</span><button id="otherFloor" type="button" hidden>其他年份</button></div>
     <div class="tip" id="tip"></div>
     <aside class="desk" id="desk"></aside>
     <div class="sheet" id="sheet"></div>

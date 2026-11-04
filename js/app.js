@@ -821,8 +821,9 @@ function beginPlay() {
   cat.set({ pos: seat, yaw: Math.PI / 2, sit: 0.2, look: 0.4 });
   cat.face?.(Math.PI / 2);
   setState('shelf');
+  refreshLibraryPanels();
   snapNext = true;
-  toast(yearColor(currentYear), '歡迎', '左邊總表揀年份 · 右邊撳書開 PDF');
+  toast(yearColor(currentYear), '歡迎', '左邊總表揀年份 · 右邊書卡開 PDF');
 }
 function enterAsStudent(raw) {
   const sid = String(raw || '').trim().padStart(2, '0');

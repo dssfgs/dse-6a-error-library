@@ -387,8 +387,7 @@ export function placeWallBooks(items, parent) {
     const z0 = zBase + i * spacing;
     const yearColor = colorForYear(year);
     const item = byYear[year];
-    let plateY = rowY(2) + 0.55;
-
+    // No floating 班中位 plates — left 總表 owns year summary; HTML cards own taps.
     if (item) {
       const m = makeBookMesh(item, colorForItem(item));
       const { h, d } = m.userData.dims;
@@ -399,14 +398,7 @@ export function placeWallBooks(items, parent) {
       m.userData.year = year;
       parent.add(m);
       meshes.push(m);
-      plateY = y + h + 0.28;
     }
-
-    const plate = makePerfPlate(year, yearColor);
-    plate.scale.set(0.55, 0.55, 0.55);
-    plate.rotation.y = -Math.PI / 2;
-    plate.position.set(SHELF_FRONT - 0.02, plateY, z0);
-    parent.add(plate);
   }
   return meshes;
 }
