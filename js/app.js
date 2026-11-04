@@ -578,17 +578,22 @@ function pickBook(e) {
 /** Book or 班中位 plate on the wall. */
 function pickWall(e) {
   aim(e);
-  const targets = bookGroup.children.filter((o) => o.userData?.item || o.userData?.perfPlate);
-  const hits = raycaster.intersectObjects(targets, false);
+  // Prefer live bookMeshes (right-wall books); fall back to group children.
+  const targets = (bookMeshes && bookMeshes.length)
+    ? bookMeshes
+    : bookGroup.children.filter((o) => o.userData?.item || o.userData?.perfPlate);
+  const hits = raycaster.intersectObjects(targets, true);
   const obj = hits[0]?.object;
   if (!obj) return null;
-  if (obj.userData?.item) {
-    return { kind: 'book', item: obj.userData.item, year: String(obj.userData.item.year), mesh: obj };
+  const root = obj.userData?.item ? obj : (obj.parent?.userData?.item ? obj.parent : obj);
+  if (root.userData?.item) {
+    return { kind: 'book', item: root.userData.item, year: String(root.userData.item.year), mesh: root };
   }
-  if (obj.userData?.perfPlate) {
-    const year = String(obj.userData.year);
+  if (obj.userData?.perfPlate || root.userData?.perfPlate) {
+    const plate = obj.userData?.perfPlate ? obj : root;
+    const year = String(plate.userData.year);
     const book = bookMeshes.find((m) => String(m.userData?.item?.year) === year);
-    return { kind: 'plate', item: book?.userData?.item || null, year, mesh: obj };
+    return { kind: 'plate', item: book?.userData?.item || null, year, mesh: plate };
   }
   return null;
 }

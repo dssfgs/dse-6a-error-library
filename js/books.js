@@ -192,10 +192,11 @@ export function bookId(item) {
 function bookDims(item) {
   const h0 = hash(bookId(item));
   const pages = item.pages || 4;
+  // Slightly chunkier so hallway tap/click on the spine is reliable.
   return {
-    t: Math.min(0.085, Math.max(0.04, 0.035 + pages * 0.0022 + ((h0 >>> 2) % 3) * 0.004)),
-    h: 0.30 + ((h0 >>> 4) % 4) * 0.02,
-    d: 0.22 + ((h0 >>> 6) % 3) * 0.01,
+    t: Math.min(0.12, Math.max(0.055, 0.05 + pages * 0.0025 + ((h0 >>> 2) % 3) * 0.006)),
+    h: 0.38 + ((h0 >>> 4) % 4) * 0.025,
+    d: 0.26 + ((h0 >>> 6) % 3) * 0.015,
   };
 }
 

@@ -187,15 +187,18 @@ function bay(z) {
 }
 
 function makeBoardTexture() {
-  // Placeholder; app paints live summary via paintSummaryBoard().
-  const [c, g] = cv(768, 1280);
-  g.fillStyle = '#f7ecda'; g.fillRect(0, 0, 768, 1280);
-  g.fillStyle = '#2a2623'; g.fillRect(0, 0, 768, 96);
-  g.fillStyle = '#fbf1df'; g.font = '700 48px Gaegu, cursive'; g.textAlign = 'center';
-  g.fillText('年份總表', 384, 64);
+  // High-res cream placeholder; app overwrites via paintSummaryBoard().
+  const [c, g] = cv(1024, 1680);
+  g.fillStyle = '#fbf3e4'; g.fillRect(0, 0, 1024, 1680);
+  g.fillStyle = '#2a221c'; g.fillRect(0, 0, 1024, 140);
+  g.fillStyle = '#fff8ec'; g.font = '900 72px Gaegu, "Noto Sans TC", sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('年份總表', 512, 72);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 8;
+  t.flipY = true; // match pickBoardYear: py = (1 - uv.y) * H
+  t.needsUpdate = true;
   return t;
 }
 
@@ -205,39 +208,93 @@ export function paintSummaryBoard(title, subtitle, rows) {
   const c = board.canvas;
   const g = c.getContext('2d');
   const W = c.width, H = c.height;
-  g.fillStyle = '#f7ecda'; g.fillRect(0, 0, W, H);
-  g.fillStyle = '#2a2623'; g.fillRect(0, 0, W, 110);
-  g.fillStyle = '#fbf1df'; g.font = '700 56px Gaegu, cursive'; g.textAlign = 'center';
-  g.fillText(title || '年份總表', W / 2, 72);
-  g.fillStyle = '#8a705c'; g.font = '600 28px sans-serif';
-  g.fillText(subtitle || '撳年份睇成績 · 右邊撳書開 PDF', W / 2, 150);
+  const list = rows || [];
 
-  const top = 180;
-  const rowH = Math.min(118, (H - top - 40) / Math.max(1, rows.length));
+  // Cream panel — high contrast so it reads from hallway mid-distance.
+  g.fillStyle = '#fbf3e4'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#241c16'; g.fillRect(0, 0, W, 150);
+  g.fillStyle = '#fff8ec';
+  g.font = '900 78px Gaegu, "Noto Sans TC", sans-serif';
+  g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  g.fillText(title || '年份總表', W / 2, 88);
+  g.fillStyle = '#d8c4a8';
+  g.font = '700 30px "Noto Sans TC", system-ui, sans-serif';
+  g.fillText(subtitle || '撳年份睇成績 · 右邊撳書開 PDF', W / 2, 130);
+
+  // Column headers
+  const top = 188;
+  g.fillStyle = '#e9d7bc';
+  roundRect(g, 28, top - 28, W - 56, 36, 10); g.fill();
+  g.fillStyle = '#5a4638';
+  g.font = '800 22px "Noto Sans TC", system-ui, sans-serif';
+  g.textAlign = 'left';
+  g.fillText('年份', 56, top - 4);
+  g.fillText('你等級', 250, top - 4);
+  g.fillText('班中位', 480, top - 4);
+  g.textAlign = 'right';
+  g.fillText('PDF', W - 56, top - 4);
+
+  const n = Math.max(1, list.length);
+  const rowH = Math.min(160, (H - top - 48) / n);
   const hit = [];
-  rows.forEach((r, i) => {
-    const y0 = top + i * rowH;
-    const y1 = y0 + rowH - 8;
-    g.fillStyle = i % 2 ? '#efe0c8' : '#f4e8d4';
-    roundRect(g, 36, y0, W - 72, rowH - 10, 18); g.fill();
-    // accent bar
+  list.forEach((r, i) => {
+    const y0 = top + 16 + i * rowH;
+    const y1 = y0 + rowH - 10;
+    const mid = y0 + (rowH - 10) / 2;
+
+    g.fillStyle = i % 2 ? '#f0e2cc' : '#f7ecda';
+    roundRect(g, 28, y0, W - 56, rowH - 10, 16); g.fill();
+
+    // Left accent stripe
     g.fillStyle = r.accent || '#86afd8';
-    roundRect(g, 36, y0, 18, rowH - 10, 18); g.fill();
-    g.fillStyle = '#3a2a20'; g.font = '900 52px Gaegu, cursive'; g.textAlign = 'left';
-    g.fillText(String(r.year), 70, y0 + rowH * 0.48);
-    g.fillStyle = '#5a4638'; g.font = '700 26px sans-serif';
-    const line1 = r.you != null ? `你 ${r.you}` : '教師';
-    const line2 = `班中位 ${r.median || '—'} · ${r.hasPdf ? '有 PDF' : '無 PDF'}`;
-    g.fillText(line1, 220, y0 + rowH * 0.38);
-    g.fillStyle = '#a8784f'; g.font = '600 24px sans-serif';
-    g.fillText(line2, 220, y0 + rowH * 0.68);
-    g.fillStyle = r.accent || '#86afd8'; g.font = '800 28px sans-serif'; g.textAlign = 'right';
-    g.fillText(r.hasPdf ? '書 →' : '成績', W - 56, y0 + rowH * 0.52);
-    // UV: PlaneGeometry default uv y is bottom-up in three? Canvas texture maps with flipY true by default.
-    // Store pixel rows; app converts using uv.
-    hit.push({ year: String(r.year), y0, y1, hasPdf: !!r.hasPdf });
+    roundRect(g, 28, y0, 22, rowH - 10, 16); g.fill();
+    g.fillStyle = r.accent || '#86afd8';
+    g.fillRect(40, y0, 10, rowH - 10);
+
+    // Year
+    g.fillStyle = '#2a1e16';
+    g.font = '900 64px Gaegu, "Noto Sans TC", sans-serif';
+    g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.fillText(String(r.year), 60, mid);
+
+    // 你等級
+    const youTxt = r.you != null ? String(r.you) : '—';
+    g.fillStyle = r.you != null ? (r.accent || '#3a2a20') : '#9a8570';
+    g.font = '900 52px Gaegu, "Noto Sans TC", sans-serif';
+    g.fillText(youTxt, 250, mid);
+
+    // 班中位
+    g.fillStyle = '#5a4638';
+    g.font = '800 44px Gaegu, "Noto Sans TC", sans-serif';
+    g.fillText(String(r.median || '—'), 500, mid);
+
+    // PDF badge
+    const pdfOk = !!r.hasPdf;
+    const badgeW = 150, badgeH = Math.min(56, rowH - 28);
+    const bx = W - 56 - badgeW, by = mid - badgeH / 2;
+    g.fillStyle = pdfOk ? '#2f5b55' : '#a89078';
+    roundRect(g, bx, by, badgeW, badgeH, 14); g.fill();
+    g.fillStyle = '#fff8ec';
+    g.font = '800 28px "Noto Sans TC", system-ui, sans-serif';
+    g.textAlign = 'center';
+    g.fillText(pdfOk ? '有 PDF' : '無 PDF', bx + badgeW / 2, mid);
+
+    // Pixel bounds for UV pick (flipY): py = (1 - uv.y) * H
+    hit.push({ year: String(r.year), y0, y1, hasPdf: pdfOk });
   });
+
+  if (!list.length) {
+    g.fillStyle = '#8a705c';
+    g.font = '700 36px "Noto Sans TC", system-ui, sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('暫時未有年份資料', W / 2, H / 2);
+  }
+
   board.tex.needsUpdate = true;
+  if (board.face?.material) {
+    board.face.material.map = board.tex;
+    board.face.material.needsUpdate = true;
+  }
   board.rows = hit;
   board.canvasH = H;
 }
@@ -285,28 +342,39 @@ export function buildWorld() {
   scene.add(plaqueMesh);
   plaqueBrass = box(0.1, 0.025, 0.42, M.brass, SHELF_FRONT + 0.08, rowY(3) + 0.05, FEAT_Z + 0.55, scene, 0.008);
 
-  // Left corridor wall: large year 總表 (clickable rows)
+  // Left corridor wall: large year 總表 (clickable rows).
+  // Frame is a back plate; cream face sits IN FRONT so it is not occluded
+  // (old face z=0.045 sat behind wood box front at z=+0.05 → solid brown).
   board.tex = makeBoardTexture();
   board.canvas = board.tex.image;
   board.rows = [];
   board.canvasH = board.canvas.height;
   const g = new THREE.Group();
-  const face = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.55, 2.55),
-    new THREE.MeshStandardMaterial({ map: board.tex, roughness: 0.72 })
-  );
-  face.position.set(0, 0, 0.045);
-  face.name = 'summaryFace';
-  g.add(face);
-  const frame = box(1.68, 2.7, 0.1, M.woodDark, 0, 0, 0, g, 0.02);
+  const frame = box(1.78, 2.85, 0.08, M.woodDark, 0, 0, 0, g, 0.02);
   frame.castShadow = true;
-  // Flat on left wall, facing into the hallway (+X)
-  g.position.set(X0 + 0.28, 1.85, -2.2);
+  frame.receiveShadow = true;
+  // Inner wood lip (picture-frame feel) slightly in front of back plate
+  box(1.62, 2.68, 0.04, M.wood, 0, 0, 0.05, g, 0.01, false);
+  // Readable face: MeshBasicMaterial like lobby sign — not darkened by side lighting
+  const face = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.48, 2.52),
+    new THREE.MeshBasicMaterial({ map: board.tex, toneMapped: false })
+  );
+  face.position.set(0, 0, 0.078); // clear of frame (+0.04) and back plate (+0.04)
+  face.name = 'summaryFace';
+  face.userData.boardFace = true;
+  g.add(face);
+  // Flat on left wall, facing into the hallway (+X after rotY π/2)
+  g.position.set(X0 + 0.28, 1.95, -2.0);
   g.rotation.y = Math.PI / 2;
   g.userData.board = true;
   scene.add(g);
   board.group = g;
   board.face = face;
+  // Warm fill so board stays clear even when sun is behind the left wall
+  const boardLamp = new THREE.PointLight('#ffe6c4', 10, 7, 2);
+  boardLamp.position.set(X0 + 1.4, 2.2, -2.0);
+  scene.add(boardLamp);
 
   // Stairs arch hint at far end
   box(2.4, 3.2, 0.2, M.woodDark, 0, 1.6, Z0 + 0.6, scene, 0.02);
