@@ -131,11 +131,23 @@ export const YEAR_BAY_Z = {
   2013: 0.65,
   2014: -1.2,
   2018: -3.05,
+  2022: -4.05,
   2023: -5.05,
   2024: -6.75,
   2025: -8.6,
   2026: -10.45,
 };
+
+/** Assign hallway bay Z for every year (uses BAY_ZS in order). */
+export function syncYearBayZ(years) {
+  const list = [...years].map(String).sort((a, b) => Number(a) - Number(b));
+  const zs = BAY_ZS.length ? BAY_ZS : Object.values(YEAR_BAY_Z).sort((a, b) => b - a);
+  list.forEach((y, i) => {
+    YEAR_BAY_Z[y] = zs[Math.min(i, zs.length - 1)];
+  });
+  return YEAR_BAY_Z;
+}
+
 export function yearBayZ(year) {
   const z = YEAR_BAY_Z[String(year)];
   return z == null ? FEAT_Z : z;
@@ -145,7 +157,12 @@ let floorAccent = '#86afd8';
 let plaqueMesh = null;
 let plaqueBrass = null;
 export let floorMesh = null;
-export const board = { group: null, canvas: null, tex: null };
+export const board = {
+  group: null, canvas: null, tex: null, face: null,
+  rows: [], canvasH: 0,
+  scroll: 0, maxScroll: 0, viewTop: 0, viewBot: 0,
+  allRows: [], // full dataset for scroll
+};
 
 function makePlaqueTexture(year, color, count) {
   const [c, g] = cv(640, 320);
@@ -187,107 +204,162 @@ function bay(z) {
 }
 
 function makeBoardTexture() {
-  // High-res cream placeholder; app overwrites via paintSummaryBoard().
-  const [c, g] = cv(1024, 1680);
-  g.fillStyle = '#fbf3e4'; g.fillRect(0, 0, 1024, 1680);
+  // Aspect matched to face plane (1.48 x 3.05 ≈ 0.485).
+  const [c, g] = cv(1024, 2110);
+  g.fillStyle = '#fbf3e4'; g.fillRect(0, 0, 1024, 2110);
   g.fillStyle = '#2a221c'; g.fillRect(0, 0, 1024, 140);
   g.fillStyle = '#fff8ec'; g.font = '900 72px Gaegu, "Noto Sans TC", sans-serif';
   g.textAlign = 'center'; g.textBaseline = 'middle';
   g.fillText('年份總表', 512, 72);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 8;
-  t.flipY = true; // match pickBoardYear: py = (1 - uv.y) * H
-  t.needsUpdate = true;
-  return t;
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  tex.flipY = true;
+  tex.needsUpdate = true;
+  return tex;
 }
 
-/** Paint left-wall 總表. rows: [{year, you, median, hasPdf, accent}] */
-export function paintSummaryBoard(title, subtitle, rows) {
+const BOARD_MIN_ROW = 92;
+const BOARD_HEADER = 188;
+const BOARD_FOOTER = 70;
+
+/** Paint left-wall 總表. rows: [{year, you, median, hasPdf, accent}] — scrollable if needed. */
+export function paintSummaryBoard(title, subtitle, rows, scrollY = null) {
   if (!board.canvas || !board.tex) return;
   const c = board.canvas;
   const g = c.getContext('2d');
   const W = c.width, H = c.height;
-  const list = rows || [];
+  const list = rows || board.allRows || [];
+  board.allRows = list;
 
-  // Cream panel — high contrast so it reads from hallway mid-distance.
+  const viewTop = BOARD_HEADER;
+  const viewBot = H - BOARD_FOOTER;
+  const viewH = viewBot - viewTop;
+  // Prefer fitting all years; only shrink toward MIN_ROW then scroll.
+  let rowH = list.length ? Math.min(150, viewH / list.length) : 150;
+  let needScroll = false;
+  if (list.length && rowH < BOARD_MIN_ROW) {
+    rowH = BOARD_MIN_ROW;
+    needScroll = true;
+  }
+  const contentH = list.length * rowH;
+  const maxScroll = Math.max(0, contentH - viewH);
+  if (scrollY == null) scrollY = board.scroll || 0;
+  scrollY = Math.max(0, Math.min(maxScroll, scrollY));
+  board.scroll = scrollY;
+  board.maxScroll = maxScroll;
+  board.viewTop = viewTop;
+  board.viewBot = viewBot;
+  board.rowH = rowH;
+
+  // Cream panel
   g.fillStyle = '#fbf3e4'; g.fillRect(0, 0, W, H);
   g.fillStyle = '#241c16'; g.fillRect(0, 0, W, 150);
   g.fillStyle = '#fff8ec';
-  g.font = '900 78px Gaegu, "Noto Sans TC", sans-serif';
+  g.font = '900 72px Gaegu, "Noto Sans TC", sans-serif';
   g.textAlign = 'center'; g.textBaseline = 'alphabetic';
-  g.fillText(title || '年份總表', W / 2, 88);
+  g.fillText(title || '年份總表', W / 2, 82);
   g.fillStyle = '#d8c4a8';
-  g.font = '700 30px "Noto Sans TC", system-ui, sans-serif';
-  g.fillText(subtitle || '撳年份睇成績 · 右邊撳書開 PDF', W / 2, 130);
+  g.font = '700 26px "Noto Sans TC", system-ui, sans-serif';
+  const sub = subtitle || '撳年份睇成績 · 右邊撳書開 PDF';
+  const scrollHint = maxScroll > 0 ? ' · 轆輪／拖曳睇晒' : ` · 共 ${list.length} 年`;
+  g.fillText(sub + (maxScroll > 0 ? ' · 轆輪／拖曳睇晒' : ''), W / 2, 128);
 
-  // Column headers
-  const top = 188;
+  // Column headers (sticky)
   g.fillStyle = '#e9d7bc';
-  roundRect(g, 28, top - 28, W - 56, 36, 10); g.fill();
+  roundRect(g, 28, viewTop - 34, W - 56, 32, 10); g.fill();
   g.fillStyle = '#5a4638';
   g.font = '800 22px "Noto Sans TC", system-ui, sans-serif';
   g.textAlign = 'left';
-  g.fillText('年份', 56, top - 4);
-  g.fillText('你等級', 250, top - 4);
-  g.fillText('班中位', 480, top - 4);
+  g.fillText('年份', 56, viewTop - 10);
+  g.fillText('你等級', 250, viewTop - 10);
+  g.fillText('班中位', 480, viewTop - 10);
   g.textAlign = 'right';
-  g.fillText('PDF', W - 56, top - 4);
+  g.fillText('PDF', W - 56, viewTop - 10);
 
-  const n = Math.max(1, list.length);
-  const rowH = Math.min(160, (H - top - 48) / n);
+  // Clip row area
+  g.save();
+  g.beginPath();
+  g.rect(0, viewTop, W, viewH);
+  g.clip();
+
   const hit = [];
   list.forEach((r, i) => {
-    const y0 = top + 16 + i * rowH;
-    const y1 = y0 + rowH - 10;
-    const mid = y0 + (rowH - 10) / 2;
+    const y0 = viewTop + i * rowH - scrollY;
+    const y1 = y0 + rowH - 8;
+    if (y1 < viewTop - 4 || y0 > viewBot + 4) return; // culled but still need hit only for visible
+    const mid = y0 + (rowH - 8) / 2;
 
     g.fillStyle = i % 2 ? '#f0e2cc' : '#f7ecda';
-    roundRect(g, 28, y0, W - 56, rowH - 10, 16); g.fill();
+    roundRect(g, 28, y0, W - 56, rowH - 8, 14); g.fill();
 
-    // Left accent stripe
     g.fillStyle = r.accent || '#86afd8';
-    roundRect(g, 28, y0, 22, rowH - 10, 16); g.fill();
-    g.fillStyle = r.accent || '#86afd8';
-    g.fillRect(40, y0, 10, rowH - 10);
+    roundRect(g, 28, y0, 20, rowH - 8, 14); g.fill();
+    g.fillRect(40, y0, 8, rowH - 8);
 
-    // Year
     g.fillStyle = '#2a1e16';
-    g.font = '900 64px Gaegu, "Noto Sans TC", sans-serif';
+    g.font = `900 ${Math.min(58, rowH * 0.55)}px Gaegu, "Noto Sans TC", sans-serif`;
     g.textAlign = 'left'; g.textBaseline = 'middle';
-    g.fillText(String(r.year), 60, mid);
+    g.fillText(String(r.year), 58, mid);
 
-    // 你等級
     const youTxt = r.you != null ? String(r.you) : '—';
     g.fillStyle = r.you != null ? (r.accent || '#3a2a20') : '#9a8570';
-    g.font = '900 52px Gaegu, "Noto Sans TC", sans-serif';
+    g.font = `900 ${Math.min(48, rowH * 0.45)}px Gaegu, "Noto Sans TC", sans-serif`;
     g.fillText(youTxt, 250, mid);
 
-    // 班中位
     g.fillStyle = '#5a4638';
-    g.font = '800 44px Gaegu, "Noto Sans TC", sans-serif';
+    g.font = `800 ${Math.min(42, rowH * 0.4)}px Gaegu, "Noto Sans TC", sans-serif`;
     g.fillText(String(r.median || '—'), 500, mid);
 
-    // PDF badge
     const pdfOk = !!r.hasPdf;
-    const badgeW = 150, badgeH = Math.min(56, rowH - 28);
-    const bx = W - 56 - badgeW, by = mid - badgeH / 2;
+    const badgeW = 140, badgeH = Math.min(48, rowH - 24);
+    const bx = W - 52 - badgeW, by = mid - badgeH / 2;
     g.fillStyle = pdfOk ? '#2f5b55' : '#a89078';
-    roundRect(g, bx, by, badgeW, badgeH, 14); g.fill();
+    roundRect(g, bx, by, badgeW, badgeH, 12); g.fill();
     g.fillStyle = '#fff8ec';
-    g.font = '800 28px "Noto Sans TC", system-ui, sans-serif';
+    g.font = '800 24px "Noto Sans TC", system-ui, sans-serif';
     g.textAlign = 'center';
     g.fillText(pdfOk ? '有 PDF' : '無 PDF', bx + badgeW / 2, mid);
 
-    // Pixel bounds for UV pick (flipY): py = (1 - uv.y) * H
-    hit.push({ year: String(r.year), y0, y1, hasPdf: pdfOk });
+    if (y1 >= viewTop && y0 <= viewBot) {
+      hit.push({ year: String(r.year), y0: Math.max(y0, viewTop), y1: Math.min(y1, viewBot), hasPdf: pdfOk });
+    }
   });
+  g.restore();
 
   if (!list.length) {
     g.fillStyle = '#8a705c';
     g.font = '700 36px "Noto Sans TC", system-ui, sans-serif';
     g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText('暫時未有年份資料', W / 2, H / 2);
+  }
+
+  // Footer: year count + scroll controls
+  g.fillStyle = '#efe0c8';
+  g.fillRect(0, viewBot, W, H - viewBot);
+  g.fillStyle = '#5a4638';
+  g.font = '700 24px "Noto Sans TC", system-ui, sans-serif';
+  g.textAlign = 'left'; g.textBaseline = 'middle';
+  const first = list.length ? list[Math.min(list.length - 1, Math.floor(scrollY / rowH))]?.year : '—';
+  const lastIdx = list.length ? Math.min(list.length - 1, Math.floor((scrollY + viewH - 1) / rowH)) : 0;
+  const last = list.length ? list[lastIdx]?.year : '—';
+  g.fillText(maxScroll > 0 ? `顯示 ${first}–${last} · 共 ${list.length} 年` : `全部 ${list.length} 年均可撳`, 40, (viewBot + H) / 2);
+
+  // ▲ ▼ hit zones (pixel space)
+  const btn = 56;
+  const up = { x0: W - 140, y0: viewBot + 8, x1: W - 78, y1: H - 8, dir: -1 };
+  const dn = { x0: W - 70, y0: viewBot + 8, x1: W - 16, y1: H - 8, dir: 1 };
+  board.scrollBtns = maxScroll > 0 ? [up, dn] : [];
+  if (maxScroll > 0) {
+    g.fillStyle = scrollY > 0 ? '#2a221c' : '#c4b09a';
+    roundRect(g, up.x0, up.y0, btn, btn - 8, 10); g.fill();
+    g.fillStyle = scrollY < maxScroll - 0.5 ? '#2a221c' : '#c4b09a';
+    roundRect(g, dn.x0, dn.y0, btn, btn - 8, 10); g.fill();
+    g.fillStyle = '#fff8ec';
+    g.font = '900 28px sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText('▲', (up.x0 + up.x1) / 2, (up.y0 + up.y1) / 2);
+    g.fillText('▼', (dn.x0 + dn.x1) / 2, (dn.y0 + dn.y1) / 2);
   }
 
   board.tex.needsUpdate = true;
@@ -297,6 +369,21 @@ export function paintSummaryBoard(title, subtitle, rows) {
   }
   board.rows = hit;
   board.canvasH = H;
+  board.needScroll = maxScroll > 0;
+}
+
+export function scrollSummaryBoard(deltaPx) {
+  if (!board.canvas) return false;
+  const next = (board.scroll || 0) + deltaPx;
+  const clamped = Math.max(0, Math.min(board.maxScroll || 0, next));
+  if (Math.abs(clamped - (board.scroll || 0)) < 0.5) return false;
+  paintSummaryBoard(board._title, board._subtitle, board.allRows, clamped);
+  return true;
+}
+
+export function setSummaryBoardLabels(title, subtitle) {
+  board._title = title;
+  board._subtitle = subtitle;
 }
 
 function roundRect(g, x, y, w, h, r) {
@@ -342,38 +429,37 @@ export function buildWorld() {
   scene.add(plaqueMesh);
   plaqueBrass = box(0.1, 0.025, 0.42, M.brass, SHELF_FRONT + 0.08, rowY(3) + 0.05, FEAT_Z + 0.55, scene, 0.008);
 
-  // Left corridor wall: large year 總表 (clickable rows).
-  // Frame is a back plate; cream face sits IN FRONT so it is not occluded
-  // (old face z=0.045 sat behind wood box front at z=+0.05 → solid brown).
+  // Left corridor wall: tall year 總表 (all years; scrolls if needed).
+  // Cream face IN FRONT of wood frame (MeshBasicMaterial = readable).
   board.tex = makeBoardTexture();
   board.canvas = board.tex.image;
   board.rows = [];
   board.canvasH = board.canvas.height;
+  board.scroll = 0;
+  board.maxScroll = 0;
   const g = new THREE.Group();
-  const frame = box(1.78, 2.85, 0.08, M.woodDark, 0, 0, 0, g, 0.02);
+  const faceH = 3.05, faceW = faceH * (1024 / 2110);
+  const frame = box(faceW + 0.22, faceH + 0.22, 0.08, M.woodDark, 0, 0, 0, g, 0.02);
   frame.castShadow = true;
   frame.receiveShadow = true;
-  // Inner wood lip (picture-frame feel) slightly in front of back plate
-  box(1.62, 2.68, 0.04, M.wood, 0, 0, 0.05, g, 0.01, false);
-  // Readable face: MeshBasicMaterial like lobby sign — not darkened by side lighting
+  box(faceW + 0.1, faceH + 0.1, 0.04, M.wood, 0, 0, 0.05, g, 0.01, false);
   const face = new THREE.Mesh(
-    new THREE.PlaneGeometry(1.48, 2.52),
+    new THREE.PlaneGeometry(faceW, faceH),
     new THREE.MeshBasicMaterial({ map: board.tex, toneMapped: false })
   );
-  face.position.set(0, 0, 0.078); // clear of frame (+0.04) and back plate (+0.04)
+  face.position.set(0, 0, 0.078);
   face.name = 'summaryFace';
   face.userData.boardFace = true;
   g.add(face);
-  // Flat on left wall, facing into the hallway (+X after rotY π/2)
-  g.position.set(X0 + 0.28, 1.95, -2.0);
+  // Centered on left wall, facing hallway (+X)
+  g.position.set(X0 + 0.28, 1.75, -1.6);
   g.rotation.y = Math.PI / 2;
   g.userData.board = true;
   scene.add(g);
   board.group = g;
   board.face = face;
-  // Warm fill so board stays clear even when sun is behind the left wall
-  const boardLamp = new THREE.PointLight('#ffe6c4', 10, 7, 2);
-  boardLamp.position.set(X0 + 1.4, 2.2, -2.0);
+  const boardLamp = new THREE.PointLight('#ffe6c4', 12, 8, 2);
+  boardLamp.position.set(X0 + 1.5, 2.0, -1.6);
   scene.add(boardLamp);
 
   // Stairs arch hint at far end

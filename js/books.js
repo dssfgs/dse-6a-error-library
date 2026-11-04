@@ -139,17 +139,44 @@ function yearAccent(year) {
   return colorForYear(year);
 }
 
-export const YEAR_FLOORS = [
-  { key: '2012', year: '2012', name: '2012', title: 'DSE 2012 錯題', color: yearAccent('2012') },
-  { key: '2013', year: '2013', name: '2013', title: 'DSE 2013 錯題', color: yearAccent('2013') },
-  { key: '2014', year: '2014', name: '2014', title: 'DSE 2014 錯題', color: yearAccent('2014') },
-  { key: '2018', year: '2018', name: '2018', title: 'DSE 2018 錯題', color: yearAccent('2018') },
-  { key: '2023', year: '2023', name: '2023', title: 'DSE 2023 錯題', color: yearAccent('2023') },
-  { key: '2024', year: '2024', name: '2024', title: 'DSE 2024 錯題', color: yearAccent('2024') },
-  { key: '2025', year: '2025', name: '2025', title: 'DSE 2025 錯題', color: yearAccent('2025') },
-  { key: '2026', year: '2026', name: '2026', title: '校本／2026 錯題', color: yearAccent('2026') },
-];
-export const FLOOR = Object.fromEntries(YEAR_FLOORS.map((f) => [f.key, f]));
+const BASE_YEAR_ORDER = ['2012', '2013', '2014', '2018', '2022', '2023', '2024', '2025', '2026'];
+
+function floorEntry(year) {
+  const y = String(year);
+  const title = y === '2026' ? '校本／2026 錯題' : `DSE ${y} 錯題`;
+  return { key: y, year: y, name: y, title, color: yearAccent(y) };
+}
+
+/** Mutable floor list — rebuilt after catalog/grades load so every dataset year appears. */
+export let YEAR_FLOORS = BASE_YEAR_ORDER.map(floorEntry);
+export let FLOOR = Object.fromEntries(YEAR_FLOORS.map((f) => [f.key, f]));
+
+/** Collect every year from grades table + catalog items + known YEAR_GRADES. */
+export function collectAllYears(catalog, grades) {
+  const set = new Set(BASE_YEAR_ORDER);
+  for (const y of Object.keys(YEAR_GRADES || {})) set.add(String(y));
+  const items = catalog?.items || (Array.isArray(catalog) ? catalog : []);
+  for (const it of items) {
+    if (it?.year != null && String(it.year).trim()) set.add(String(it.year));
+  }
+  if (grades && typeof grades === 'object') {
+    for (const row of Object.values(grades)) {
+      for (const y of Object.keys(row?.years || {})) set.add(String(y));
+      for (const y of Object.keys(row?.yearDetails || {})) set.add(String(y));
+    }
+  }
+  return [...set].filter((y) => /^\d{4}$/.test(y)).sort((a, b) => Number(a) - Number(b));
+}
+
+/** Rebuild YEAR_FLOORS / FLOOR so the left 總表 + floor sheet list every year. */
+export function rebuildYearFloors(years) {
+  const list = (years && years.length ? years : BASE_YEAR_ORDER).map(String);
+  const uniq = [...new Set(list)].filter((y) => /^\d{4}$/.test(y)).sort((a, b) => Number(a) - Number(b));
+  YEAR_FLOORS.length = 0;
+  for (const y of uniq) YEAR_FLOORS.push(floorEntry(y));
+  FLOOR = Object.fromEntries(YEAR_FLOORS.map((f) => [f.key, f]));
+  return YEAR_FLOORS;
+}
 
 const CLOTH_FALLBACK = ['#2f5b55', '#c9744f', '#e2b85c', '#6b3d5a', '#7d9a6a', '#2f3e63', '#efe0c2', '#a44a3f',
   '#d99a74', '#4f7f8a', '#8a6a4a', '#b8a3cc', '#3c4c3a', '#e7c9a4', '#9a3f4f', '#5d7a9a'];

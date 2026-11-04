@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 import {
   QS, STILL, MOBILE, renderer, scene, camera, buildWorld, resize, updateWorld, dressFloor,
-  SHELF_FRONT, rowY, X0, X1, Z0, Z1, floorMesh, board, yearBayZ, paintSummaryBoard,
+  SHELF_FRONT, rowY, X0, X1, Z0, Z1, floorMesh, board, yearBayZ, syncYearBayZ,
+  paintSummaryBoard, scrollSummaryBoard, setSummaryBoardLabels,
 } from './world.js';
 import {
   YEAR_FLOORS, FLOOR, placeWallBooks, pdfUrl, formatSize, bookId,
-  setGradeTable, setBookColorMode, colorForYear, gradeForYear, LEVEL_LABELS, LEVEL_FALLBACK,
+  setGradeTable, getGradeTable, setBookColorMode, colorForYear, gradeForYear, LEVEL_LABELS, LEVEL_FALLBACK,
   LEVEL_COLORS, gradeOf, yearDetailOf, studentRow, yearResults,
+  collectAllYears, rebuildYearFloors,
 } from './books.js';
 import { createCat, DEFAULT_FUR } from './cat.js';
 
@@ -238,8 +240,12 @@ function yearGradeLabel(year = currentYear) {
   const g = gradeForYear(year);
   return g ? (LEVEL_LABELS[g] || g) : '—';
 }
+function floorOf(year = currentYear) {
+  const y = String(year);
+  return FLOOR[y] || { key: y, year: y, name: y, title: `DSE ${y}`, color: yearColor(y) };
+}
 function syncFloorChrome() {
-  const floor = FLOOR[currentYear];
+  const floor = floorOf(currentYear);
   const accent = yearColor(currentYear);
   const nHere = bookMeshes.filter((m) => String(m.userData?.item?.year) === String(currentYear)).length;
   dressFloor(floor.year, accent, nHere, yearBayZ(currentYear));
@@ -257,11 +263,11 @@ function itemForYear(year) {
 }
 
 /** Paint left-wall corridor 總表 from current mode / grades. */
-function refreshSummaryBoard() {
+function refreshSummaryBoard({ keepScroll = false } = {}) {
   const title = '年份總表';
   const subtitle = mode === 'student'
-    ? `學號 ${studentId} · 撳年份睇成績 · 右邊撳書開 PDF`
-    : '教師 · 撳年份睇班成績 · 右邊撳書開 PDF';
+    ? `學號 ${studentId} · 撳年份睇成績（全部年份）`
+    : '教師 · 撳年份睇班成績（全部年份）';
   const rows = YEAR_FLOORS.map((f) => {
     const y = String(f.year);
     const item = itemForYear(y);
@@ -280,7 +286,9 @@ function refreshSummaryBoard() {
       accent,
     };
   });
-  paintSummaryBoard(title, subtitle, rows);
+  setSummaryBoardLabels(title, subtitle);
+  const scrollY = keepScroll ? (board.scroll || 0) : 0;
+  paintSummaryBoard(title, subtitle, rows, scrollY);
 }
 
 function selectYear(year, { openPdf = false, openStats = false, travelTo = false } = {}) {
@@ -374,7 +382,7 @@ async function travel(dest) {
   if (dest.kind === 'shelf') {
     cat.face(-Math.PI / 2);
     await sleep(180);
-    const floor = FLOOR[currentYear];
+    const floor = floorOf(currentYear);
     toast(yearColor(currentYear), floor.name, `到咗 · 撳右牆書／Enter 開 PDF · 左牆總表睇成績`);
     if (MOBILE) {
       // Phone: stay on the floor for tap-to-walk.
@@ -683,12 +691,25 @@ function pickFloor(e) {
   const hit = raycaster.intersectObject(floorMesh, false)[0];
   return hit?.point || null;
 }
+
+function handleBoardPick(by) {
+  if (!by) return false;
+  if (by.scroll) {
+    scrollSummaryBoard(by.scroll * (board.rowH || 100));
+    return true;
+  }
+  if (by.year) {
+    selectYear(by.year, { openStats: true });
+    return true;
+  }
+  return false;
+}
 function pickBoard(e) {
   if (!board.group) return false;
   aim(e);
   return raycaster.intersectObject(board.group, true).length > 0;
 }
-/** Hit left-wall 總表 row → { year, hasPdf } or null. */
+/** Hit left-wall 總表 → { year, hasPdf } | { scroll: ±1 } | null. */
 function pickBoardYear(e) {
   if (!board.group) return null;
   aim(e);
@@ -696,10 +717,17 @@ function pickBoardYear(e) {
   const hits = raycaster.intersectObject(target, true);
   const hit = hits[0];
   if (!hit) return null;
-  const rows = board.rows || [];
-  if (!hit.uv || !rows.length) return { year: null, hasPdf: false };
-  const H = board.canvasH || board.canvas?.height || 1280;
+  const H = board.canvasH || board.canvas?.height || 2110;
+  const W = board.canvas?.width || 1024;
+  if (!hit.uv) return { year: null, hasPdf: false };
+  const px = hit.uv.x * W;
   const py = (1 - hit.uv.y) * H; // canvas flipY
+  for (const b of board.scrollBtns || []) {
+    if (px >= b.x0 && px <= b.x1 && py >= b.y0 && py <= b.y1) {
+      return { scroll: b.dir, year: null, hasPdf: false };
+    }
+  }
+  const rows = board.rows || [];
   for (const r of rows) {
     if (py >= r.y0 && py <= r.y1) return { year: r.year, hasPdf: r.hasPdf };
   }
@@ -903,6 +931,7 @@ async function onPointerUp(e) {
   if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 10) return;
   if (state === 'intro' && !busy) {
     const by = pickBoardYear(e);
+    if (by?.scroll) { handleBoardPick(by); return; }
     if (by?.year) { await selectYear(by.year, { openStats: true }); return; }
     if (pickBoard(e)) { await startFollow(); return; }
     const hit = pickWall(e);
@@ -916,6 +945,7 @@ async function onPointerUp(e) {
   }
   if (state === 'sign' && !busy) {
     const by = pickBoardYear(e);
+    if (by?.scroll) { handleBoardPick(by); return; }
     if (by?.year) { closeSheet(); await selectYear(by.year, { openStats: true }); return; }
     if ($('sheet').classList.contains('show')) return;
     openFloorSheet();
@@ -923,12 +953,13 @@ async function onPointerUp(e) {
   }
   if ((state === 'roam' || (state === 'shelf' && freeNav)) && !busy) {
     const by = pickBoardYear(e);
+    if (by?.scroll) { handleBoardPick(by); return; }
     if (by?.year) { await selectYear(by.year, { openStats: true }); return; }
     const hit = pickWall(e);
     if (hit?.kind === 'book' && hit.item) {
       currentYear = String(hit.item.year);
       syncFloorChrome();
-      refreshSummaryBoard();
+      refreshSummaryBoard({ keepScroll: true });
       closeDesk();
       openPdfViewer(hit.item);
       return;
@@ -939,12 +970,13 @@ async function onPointerUp(e) {
   }
   if (state === 'shelf' && !busy) {
     const by = pickBoardYear(e);
+    if (by?.scroll) { handleBoardPick(by); return; }
     if (by?.year) { await selectYear(by.year, { openStats: true }); return; }
     const hit = pickWall(e);
     if (hit?.kind === 'book' && hit.item) {
       currentYear = String(hit.item.year);
       syncFloorChrome();
-      refreshSummaryBoard();
+      refreshSummaryBoard({ keepScroll: true });
       closeDesk();
       openPdfViewer(hit.item);
     }
@@ -991,9 +1023,39 @@ function bindUi() {
     if (e.target.id === 'deskClose' || e.target.id === 'deskBack') { closeDesk(); return; }
     if (e.target.id === 'openPdf' && selected) openPdfViewer(selected);
   });
-  canvasEl.addEventListener('pointermove', onPointerMove);
-  canvasEl.addEventListener('pointerdown', onPointerDown);
-  canvasEl.addEventListener('pointerup', onPointerUp);
+  // In-world 總表 scroll: wheel / drag so every year is reachable.
+  let boardDrag = null;
+  const boardPlay = () => state === 'intro' || state === 'roam' || state === 'shelf' || state === 'sign' || state === 'book';
+  canvasEl.addEventListener('wheel', (e) => {
+    if (busy || !boardPlay()) return;
+    aim(e);
+    if (!(board.face && raycaster.intersectObject(board.face, true).length)) return;
+    e.preventDefault();
+    scrollSummaryBoard(e.deltaY * 0.85);
+  }, { passive: false });
+  canvasEl.addEventListener('pointermove', (e) => {
+    if (boardDrag && !petting) {
+      const dy = e.clientY - boardDrag.y;
+      if (Math.abs(dy) > 4) {
+        boardDrag.y = e.clientY;
+        boardDrag.scrolled = true;
+        scrollSummaryBoard(-dy * 2.2);
+      }
+    }
+    onPointerMove(e);
+  });
+  canvasEl.addEventListener('pointerdown', (e) => {
+    onPointerDown(e);
+    if (petting || busy || !boardPlay()) return;
+    if (pickBoard(e)) boardDrag = { y: e.clientY, scrolled: false };
+  });
+  canvasEl.addEventListener('pointerup', async (e) => {
+    const dragged = boardDrag?.scrolled;
+    boardDrag = null;
+    if (dragged) { downAt = null; return; }
+    await onPointerUp(e);
+  });
+
   canvasEl.addEventListener('pointercancel', () => { petting = null; });
   addEventListener('resize', () => { resize(); snapNext = true; });
   addEventListener('keydown', async (e) => {
@@ -1080,7 +1142,13 @@ async function boot() {
     console.error(err);
     toast('#e0745a', '目錄讀取失敗', String(err.message || err));
   }
-  dressFloor(FLOOR[currentYear].year, yearColor(currentYear), 0);
+  // Ensure left 總表 / floor list includes every year in grades + catalog (e.g. 2022).
+  const allYears = collectAllYears(catalog, getGradeTable());
+  rebuildYearFloors(allYears);
+  syncYearBayZ(allYears);
+  if (!FLOOR[currentYear] && YEAR_FLOORS[0]) currentYear = YEAR_FLOORS[0].key;
+  console.info('[library] years', allYears.join(', '));
+  dressFloor(floorOf(currentYear).year, yearColor(currentYear), 0);
   setState('gate');
   snapNext = true;
   updateCamera(1);
