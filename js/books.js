@@ -1,19 +1,96 @@
 import * as THREE from 'three';
 import { SHELF_FRONT, rowY, rgeo, yearBayZ } from './world.js';
 
+/** Class-median representative grade per exam year (same year → same colour for all). */
+export const YEAR_GRADES = {
+  '2012': '3',
+  '2013': '4',
+  '2014': '5',
+  '2018': null, // not enough data
+  '2022': '4',
+  '2023': '4',
+  '2024': '4',
+  '2025': '4',
+  '2026': '4',
+};
+
+export const LEVEL_COLORS = {
+  '5**': '#d4af37', // gold
+  '5*': '#c5ccd6',  // silver
+  '5': '#cd7f32',   // bronze
+  '4': '#6fa8c9',   // soft sky teal
+  '3': '#9b7bb8',   // soft violet
+  '2': '#c4785a',   // warm clay
+  '1': '#6b6e76',   // slate
+};
+export const LEVEL_FALLBACK = '#c9b8a0'; // warm stone / unknown
+export const LEVEL_LABELS = {
+  '5**': '5**',
+  '5*': '5*',
+  '5': '5',
+  '4': '4',
+  '3': '3',
+  '2': '2',
+  '1': '1',
+};
+
+export function colorForGrade(grade) {
+  if (grade == null || grade === '' || grade === 'unknown') return LEVEL_FALLBACK;
+  return LEVEL_COLORS[String(grade)] || LEVEL_FALLBACK;
+}
+
+export function gradeForYear(year) {
+  const key = String(year);
+  if (!(key in YEAR_GRADES)) return null;
+  return YEAR_GRADES[key];
+}
+
+export function colorForYear(year) {
+  const g = gradeForYear(year);
+  if (g === null && String(year) in YEAR_GRADES) return LEVEL_FALLBACK; // explicitly unknown
+  if (g == null) return LEVEL_FALLBACK;
+  return colorForGrade(g);
+}
+
+/** Optional per-student table (shipped for future use; wall colour uses year medians). */
+let gradeTable = null;
+export function setGradeTable(data) {
+  gradeTable = data && typeof data === 'object' ? data : null;
+}
+export function getGradeTable() {
+  return gradeTable;
+}
+export function gradeOf(studentId, year) {
+  if (!gradeTable) return null;
+  const sid = String(studentId).padStart(2, '0');
+  const row = gradeTable[sid];
+  if (!row?.years) return null;
+  const g = row.years[String(year)];
+  return g == null ? null : String(g);
+}
+
+export function colorForItem(item) {
+  // Wall / plaque / cloth: class-median colour for that exam year.
+  return colorForYear(item?.year);
+}
+
+function yearAccent(year) {
+  return colorForYear(year);
+}
+
 export const YEAR_FLOORS = [
-  { key: '2012', year: '2012', name: '2012', title: 'DSE 2012 錯題', color: '#86b98f' },
-  { key: '2013', year: '2013', name: '2013', title: 'DSE 2013 錯題', color: '#a5c786' },
-  { key: '2014', year: '2014', name: '2014', title: 'DSE 2014 錯題', color: '#86afd8' },
-  { key: '2018', year: '2018', name: '2018', title: 'DSE 2018 錯題', color: '#93bfdc' },
-  { key: '2023', year: '2023', name: '2023', title: 'DSE 2023 錯題', color: '#c99fd0' },
-  { key: '2024', year: '2024', name: '2024', title: 'DSE 2024 錯題', color: '#eda088' },
-  { key: '2025', year: '2025', name: '2025', title: 'DSE 2025 錯題', color: '#e5bc62' },
-  { key: '2026', year: '2026', name: '2026', title: '校本／2026 錯題', color: '#d88a6a' },
+  { key: '2012', year: '2012', name: '2012', title: 'DSE 2012 錯題', color: yearAccent('2012') },
+  { key: '2013', year: '2013', name: '2013', title: 'DSE 2013 錯題', color: yearAccent('2013') },
+  { key: '2014', year: '2014', name: '2014', title: 'DSE 2014 錯題', color: yearAccent('2014') },
+  { key: '2018', year: '2018', name: '2018', title: 'DSE 2018 錯題', color: yearAccent('2018') },
+  { key: '2023', year: '2023', name: '2023', title: 'DSE 2023 錯題', color: yearAccent('2023') },
+  { key: '2024', year: '2024', name: '2024', title: 'DSE 2024 錯題', color: yearAccent('2024') },
+  { key: '2025', year: '2025', name: '2025', title: 'DSE 2025 錯題', color: yearAccent('2025') },
+  { key: '2026', year: '2026', name: '2026', title: '校本／2026 錯題', color: yearAccent('2026') },
 ];
 export const FLOOR = Object.fromEntries(YEAR_FLOORS.map((f) => [f.key, f]));
 
-const CLOTH = ['#2f5b55', '#c9744f', '#e2b85c', '#6b3d5a', '#7d9a6a', '#2f3e63', '#efe0c2', '#a44a3f',
+const CLOTH_FALLBACK = ['#2f5b55', '#c9744f', '#e2b85c', '#6b3d5a', '#7d9a6a', '#2f3e63', '#efe0c2', '#a44a3f',
   '#d99a74', '#4f7f8a', '#8a6a4a', '#b8a3cc', '#3c4c3a', '#e7c9a4', '#9a3f4f', '#5d7a9a'];
 const SANS = '"Pretendard Variable", Pretendard, "Noto Sans TC", system-ui, sans-serif';
 const INK = '#4a3a32';
@@ -31,11 +108,11 @@ function tex(c) {
   return t;
 }
 function lum(hex) {
-  const n = parseInt(hex.slice(1), 16);
+  const n = parseInt(String(hex).replace('#', '').slice(0, 6), 16);
   return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
 }
 function shade(hex, k) {
-  const n = parseInt(hex.slice(1), 16);
+  const n = parseInt(String(hex).replace('#', '').slice(0, 6), 16);
   const f = (v) => Math.max(0, Math.min(255, Math.round(k < 0 ? v * (1 + k) : v + (255 - v) * k)));
   return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`;
 }
@@ -60,20 +137,22 @@ function bookDims(item) {
     d: 0.22 + ((h0 >>> 6) % 3) * 0.01,
   };
 }
-const clothOf = (item) => CLOTH[hash(bookId(item)) % CLOTH.length];
+
+/** Whole-book cloth colour = class-median grade colour for that year. */
+const clothOf = (item) => colorForItem(item) || CLOTH_FALLBACK[hash(bookId(item)) % CLOTH_FALLBACK.length];
 
 function spineTexture(item, dims, yearColor) {
   const W = 160;
   const H = Math.round((W * dims.h) / dims.t);
   const [c, g] = canvas(W, H);
   const bg = clothOf(item);
-  const light = lum(bg) > 0.6;
+  const light = lum(bg) > 0.55;
   const ink = light ? INK : '#fffaf0';
   g.fillStyle = bg; g.fillRect(0, 0, W, H);
   grain(g, W, H, 2.5);
 
-  // Colour band at top so the year block pops from down the hall.
-  g.fillStyle = yearColor;
+  // Accent band at top (same grade colour — subtle darker stripe).
+  g.fillStyle = shade(yearColor, -0.18);
   g.fillRect(0, 0, W, 28);
 
   const footH = 96;
@@ -82,7 +161,6 @@ function spineTexture(item, dims, yearColor) {
   rrect(g, 16, 40, W - 32, 5, 2); g.fill();
   rrect(g, 16, footY - 16, W - 32, 5, 2); g.fill();
 
-  // Year is the hero: tall digits down the spine.
   const year = String(item.year);
   g.fillStyle = ink; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.font = `900 72px ${SANS}`;
@@ -91,7 +169,6 @@ function spineTexture(item, dims, yearColor) {
   let y = 56 + step / 2;
   [...year].forEach((ch) => { g.fillText(ch, W / 2, y); y += step; });
 
-  // Small foot label: class / student / pages — not the year.
   g.fillStyle = '#fffaf0';
   rrect(g, 10, footY, W - 20, footH, 12); g.fill();
   g.save(); rrect(g, 10, footY, W - 20, footH, 12); g.clip();
@@ -101,7 +178,9 @@ function spineTexture(item, dims, yearColor) {
   const sid = String(item.student_id).padStart(2, '0');
   g.font = `800 28px ${SANS}`; g.fillText(`學號 ${sid}`, W / 2, footY + 42);
   g.font = `700 20px ${SANS}`; g.fillText(item.class, W / 2, footY + 68);
-  g.font = `600 18px ${SANS}`; g.fillText(`${item.pages || '?'}頁`, W / 2, footY + 88);
+  const grade = gradeForYear(item.year);
+  const gradeTxt = grade ? `級 ${LEVEL_LABELS[grade] || grade}` : `${item.pages || '?'}頁`;
+  g.font = `600 18px ${SANS}`; g.fillText(gradeTxt, W / 2, footY + 88);
 
   const grd = g.createLinearGradient(0, 0, W, 0);
   grd.addColorStop(0, 'rgba(90,60,40,.18)');
@@ -116,7 +195,6 @@ function yearTagTexture(year, yearColor) {
   const W = 512, H = 192;
   const [c, g] = canvas(W, H);
   g.clearRect(0, 0, W, H);
-  // Soft plate so the year reads from halfway down the hall.
   g.fillStyle = 'rgba(47, 38, 32, 0.82)';
   rrect(g, 16, 16, W - 32, H - 32, 28); g.fill();
   g.fillStyle = yearColor;
@@ -125,6 +203,12 @@ function yearTagTexture(year, yearColor) {
   g.textAlign = 'center'; g.textBaseline = 'middle';
   g.font = `900 118px ${SANS}`;
   g.fillText(String(year), W / 2 + 8, H / 2 + 4);
+  const grade = gradeForYear(year);
+  if (grade) {
+    g.font = `800 36px ${SANS}`;
+    g.fillStyle = yearColor;
+    g.fillText(LEVEL_LABELS[grade] || grade, W - 70, H / 2 + 4);
+  }
   const t = tex(c);
   t.premultiplyAlpha = true;
   return t;
@@ -147,7 +231,7 @@ function coverTexture(item, dims, yearColor) {
   const W = 512, Hh = Math.round((W * dims.h) / dims.d);
   const [c, g] = canvas(W, Hh);
   const bg = clothOf(item);
-  const light = lum(bg) > 0.6;
+  const light = lum(bg) > 0.55;
   const ink = light ? INK : '#fffaf0';
   g.fillStyle = bg; g.fillRect(0, 0, W, Hh);
   grain(g, W, Hh, 2);
@@ -158,8 +242,9 @@ function coverTexture(item, dims, yearColor) {
   rrect(g, 56, 56, W - 112, 78, 20); g.fill();
   g.fillStyle = '#fff'; g.font = `900 52px ${SANS}`; g.textAlign = 'center';
   g.fillText(String(item.year), W / 2, 108);
+  const grade = gradeForYear(item.year);
   g.font = `700 26px ${SANS}`;
-  g.fillText('錯題簿', W / 2, 140);
+  g.fillText(grade ? `錯題簿 · ${LEVEL_LABELS[grade] || grade}` : '錯題簿', W / 2, 140);
   g.fillStyle = ink; g.font = `800 56px ${SANS}`;
   g.fillText(`學號 ${String(item.student_id).padStart(2, '0')}`, W / 2, Hh * 0.42);
   g.font = `600 26px ${SANS}`;
@@ -183,38 +268,22 @@ function pageTexture() {
 export function makeBookMesh(item, yearColor) {
   const dims = bookDims(item);
   const { t, h, d } = dims;
-  const spine = spineTexture(item, dims, yearColor);
-  const cover = coverTexture(item, dims, yearColor);
+  const accent = yearColor || colorForItem(item);
+  const spine = spineTexture(item, dims, accent);
+  const cover = coverTexture(item, dims, accent);
   const pages = pageTexture();
-  const mats = [
-    new THREE.MeshStandardMaterial({ map: spine, roughness: 0.85 }), // +x spine facing out when rotated
-    new THREE.MeshStandardMaterial({ color: shade(clothOf(item), -0.15), roughness: 0.9 }),
-    new THREE.MeshStandardMaterial({ color: '#f3e6d3', roughness: 1 }),
-    new THREE.MeshStandardMaterial({ color: '#e8d7c0', roughness: 1 }),
+  // BoxGeometry faces: +x -x +y -y +z -z. Shelf on +X wall → spine on -x toward aisle.
+  const mesh = new THREE.Mesh(rgeo(d, h, t, 0.008), [
     new THREE.MeshStandardMaterial({ map: cover, roughness: 0.85 }),
-    new THREE.MeshStandardMaterial({ map: pages, roughness: 1 }),
-  ];
-  // BoxGeometry faces: +x -x +y -y +z -z. We orient book so thickness is along Z (shelf row), height Y, depth X into shelf.
-  const mesh = new THREE.Mesh(rgeo(d, h, t, 0.008), mats);
-  // Remap: we want spine on +X (toward aisle). So thickness along Z, depth along X.
-  // Recreate with correct dims: width(X)=depth of book into shelf, height=Y, depth(Z)=thickness
-  mesh.geometry.dispose();
-  mesh.geometry = rgeo(d, h, t, 0.008);
-  // materials order for BoxGeometry: +x -x +y -y +z -z
-  // +x = cover front? Actually for shelf books with spine facing aisle (-wait SHELF_FRONT is on +X wall, spines face -X toward aisle)
-  // Reference places books with spine toward aisle. Shelf is on +X wall, so spine faces -X (negative X).
-  // So -x face should be spine. BoxGeometry: index 1 is -x.
-  mesh.material = [
-    new THREE.MeshStandardMaterial({ map: cover, roughness: 0.85 }), // +x into shelf back
-    new THREE.MeshStandardMaterial({ map: spine, roughness: 0.85 }), // -x spine to aisle
+    new THREE.MeshStandardMaterial({ map: spine, roughness: 0.85 }),
     new THREE.MeshStandardMaterial({ color: '#f3e6d3', roughness: 1 }),
     new THREE.MeshStandardMaterial({ color: '#e8d7c0', roughness: 1 }),
     new THREE.MeshStandardMaterial({ map: pages, roughness: 1 }),
     new THREE.MeshStandardMaterial({ map: pages, roughness: 1 }),
-  ];
+  ]);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
-  mesh.userData = { item, dims, id: bookId(item) };
+  mesh.userData = { item, dims, id: bookId(item), gradeColor: accent };
   return mesh;
 }
 
@@ -226,19 +295,17 @@ export function placeWallBooks(items, parent) {
   const meshes = [];
   const list = [...items].sort((a, b) => String(a.year).localeCompare(String(b.year)));
   for (const item of list) {
-    const yearColor = (FLOOR[item.year] || FLOOR[YEAR_FLOORS[0].key]).color;
+    const yearColor = colorForItem(item);
     const m = makeBookMesh(item, yearColor);
     const { t, h, d } = m.userData.dims;
     const z0 = yearBayZ(item.year);
-    // Slight row variety so years feel like different wall slots, still eye-level.
-    const row = 1 + (hash(String(item.year)) % 3); // 1, 2, or 3
+    const row = 1 + (hash(String(item.year)) % 3);
     const y = rowY(row) + 0.01;
     m.position.set(SHELF_FRONT - d / 2 - 0.01, y + h / 2, z0);
     m.userData.bayZ = z0;
     parent.add(m);
     meshes.push(m);
 
-    // Large aisle-facing year plate — readable before you reach the bay.
     const tag = makeYearTag(item.year, yearColor);
     tag.rotation.y = -Math.PI / 2;
     tag.position.set(SHELF_FRONT - 0.02, y + h + 0.18, z0);
@@ -253,7 +320,6 @@ export function placeYearBooks(items, yearColor, parent) {
 }
 
 export function pdfUrl(item) {
-  // catalog path like 6A/01/2012.pdf → served under /library/
   return `library/${item.path}`;
 }
 

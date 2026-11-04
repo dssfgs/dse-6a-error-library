@@ -5,8 +5,57 @@ import {
 } from './world.js';
 import {
   YEAR_FLOORS, FLOOR, placeWallBooks, pdfUrl, formatSize, bookId,
+  setGradeTable, colorForYear, gradeForYear, LEVEL_LABELS, LEVEL_FALLBACK,
 } from './books.js';
-import { createCat } from './cat.js';
+import { createCat, DEFAULT_FUR } from './cat.js';
+
+const FUR_KEY = 'dse6a-cat-fur';
+const FUR_OPTIONS = [
+  { id: 'black', hex: '#1e1a21', label: '墨黑' },
+  { id: 'cream', hex: '#e8d4b0', label: '奶油' },
+  { id: 'orange', hex: '#d4834a', label: '橘貓' },
+  { id: 'gray', hex: '#8a858c', label: '灰貓' },
+  { id: 'white', hex: '#f2efe8', label: '白貓' },
+  { id: 'chocolate', hex: '#5c3a2e', label: '朱古力' },
+  { id: 'peach', hex: '#e8a882', label: '桃斑' },
+  { id: 'mint', hex: '#7a9e8e', label: '薄荷' },
+  { id: 'lavender', hex: '#9a8ab8', label: '淡紫' },
+  { id: 'navy', hex: '#2a3a5c', label: '深藍' },
+];
+function loadFur() {
+  const saved = localStorage.getItem(FUR_KEY);
+  if (saved && FUR_OPTIONS.some((o) => o.hex === saved)) return saved;
+  return DEFAULT_FUR;
+}
+function saveFur(hex) {
+  localStorage.setItem(FUR_KEY, hex);
+}
+function applyFur(hex) {
+  const h = hex || loadFur();
+  saveFur(h);
+  if (cat?.setFur) cat.setFur(h);
+  syncFurSwatches(h);
+}
+function syncFurSwatches(hex) {
+  const root = $('furSwatches');
+  if (!root) return;
+  root.querySelectorAll('button[data-fur]').forEach((btn) => {
+    btn.setAttribute('aria-checked', btn.dataset.fur === hex ? 'true' : 'false');
+  });
+}
+function buildFurSwatches() {
+  const root = $('furSwatches');
+  if (!root) return;
+  const cur = loadFur();
+  root.innerHTML = FUR_OPTIONS.map((o) => (
+    `<button type="button" role="radio" data-fur="${o.hex}" title="${o.label}" aria-label="${o.label}" aria-checked="${o.hex === cur ? 'true' : 'false'}" style="--fur:${o.hex}"></button>`
+  )).join('');
+  root.onclick = (e) => {
+    const btn = e.target.closest('[data-fur]');
+    if (!btn) return;
+    applyFur(btn.dataset.fur);
+  };
+}
 
 const $ = (id) => document.getElementById(id);
 const V3 = (...a) => new THREE.Vector3(...a);
@@ -176,16 +225,24 @@ function clearBooks() {
   }
   bookMeshes = [];
 }
+function yearColor(year = currentYear) {
+  return colorForYear(year) || FLOOR[year]?.color || LEVEL_FALLBACK;
+}
+function yearGradeLabel(year = currentYear) {
+  const g = gradeForYear(year);
+  return g ? (LEVEL_LABELS[g] || g) : '—';
+}
 function syncFloorChrome() {
   const floor = FLOOR[currentYear];
+  const accent = yearColor(currentYear);
   const nHere = bookMeshes.filter((m) => String(m.userData?.item?.year) === String(currentYear)).length;
-  dressFloor(floor.year, floor.color, nHere, yearBayZ(currentYear));
-  $('floorBtn').style.setProperty('--fcd', floor.color);
-  $('floorBtn').innerHTML = `<b>${floor.name}</b><small>年份</small>`;
+  dressFloor(floor.year, accent, nHere, yearBayZ(currentYear));
+  $('floorBtn').style.setProperty('--fcd', accent);
+  $('floorBtn').innerHTML = `<b>${floor.name}</b><small>${yearGradeLabel(currentYear)}</small>`;
   const who = mode === 'student' ? `學號 ${studentId}` : '教師代表冊';
   const nWall = bookMeshes.length;
   $('shelfHint').textContent = nWall
-    ? `沿牆 ${nWall} 個年份 · ${who} · 而家 ${floor.year}`
+    ? `沿牆 ${nWall} 個年份 · ${who} · 而家 ${floor.year}（班中位 ${yearGradeLabel(currentYear)}）`
     : '暫時未有錯題簿';
 }
 function rebuildShelf() {
@@ -257,7 +314,7 @@ async function travel(dest) {
     cat.face(-Math.PI / 2);
     await sleep(180);
     const floor = FLOOR[currentYear];
-    toast(floor.color, floor.name, '到咗 · 撳書脊睇錯題簿');
+    toast(yearColor(currentYear), floor.name, `到咗 · 班中位 ${yearGradeLabel(currentYear)} · 撳書脊`);
     if (MOBILE) {
       // Phone: stay on the floor for tap-to-walk.
       freeNav = true;
@@ -308,13 +365,15 @@ function openFloorSheet() {
     const n = filteredItems(f.year).length;
     const here = f.key === currentYear && (state === 'shelf' || state === 'roam' || state === 'book') ? ' here' : '';
     const empty = n === 0 ? ' empty' : '';
-    return `<button type="button" class="book${here}${empty}" data-year="${f.key}" style="--fc:${f.color}">
-      <b>${f.name}</b><span>${f.title}</span><em>${n ? n + ' 本' : '空'}</em>
+    const accent = yearColor(f.year);
+    const gl = yearGradeLabel(f.year);
+    return `<button type="button" class="book${here}${empty}" data-year="${f.key}" style="--fc:${accent}">
+      <b>${f.name}</b><span>${f.title}</span><em>${gl}${n ? ' · ' + n + ' 本' : ' · 空'}</em>
     </button>`;
   }).join('');
   const whoLine = mode === 'student'
-    ? `學號 <b>${studentId}</b>：牆上每年一本你嘅冊，行過去打開`
-    : '教師模式：牆上每年一本代表冊（優先學號 01）；目錄數字係全班份數';
+    ? `學號 <b>${studentId}</b>：牆上每年一本你嘅冊；書色＝該年班中位等級`
+    : '教師模式：牆上每年一本代表冊（優先學號 01）；書色＝該年班中位等級';
   el.innerHTML = `
     <div class="grab"></div>
     <header>
@@ -333,16 +392,18 @@ function closeSheet() { $('sheet').classList.remove('show'); }
 function openDesk(item) {
   selected = item;
   freeNav = false;
-  const floor = FLOOR[item.year] || { color: '#86afd8' };
+  const accent = yearColor(item.year);
+  const gl = yearGradeLabel(item.year);
   const url = pdfUrl(item);
   const desk = $('desk');
   desk.innerHTML = `
     <div class="d-top">
-      <p class="d-eyebrow"><span class="chip" style="--fc:${floor.color}">${item.year}</span> ${item.class} 個人錯題簿</p>
+      <p class="d-eyebrow"><span class="chip" style="--fc:${accent}">${item.year}</span>
+        <span class="chip" style="--fc:${accent}">${gl}</span> ${item.class} 個人錯題簿</p>
       <button type="button" class="x" id="deskClose">✕</button>
     </div>
     <h2>學號 ${item.student_id}</h2>
-    <p class="d-meta">${item.pages || '?'} 頁 · ${formatSize(item.size || 0)}</p>
+    <p class="d-meta">${item.pages || '?'} 頁 · ${formatSize(item.size || 0)} · 該年班中位 ${gl}</p>
     <p class="d-meta">檔案：library/${item.path}</p>
     <div class="d-actions">
       <button type="button" id="openPdf">打開 PDF</button>
@@ -404,7 +465,7 @@ function overCat(e) {
 }
 function showTip(e, item) {
   const tip = $('tip');
-  tip.innerHTML = `<b>學號 ${item.student_id}</b><span>${item.year} · ${item.pages || '?'} 頁</span>`;
+  tip.innerHTML = `<b>學號 ${item.student_id}</b><span>${item.year} · 班中位 ${yearGradeLabel(item.year)} · ${item.pages || '?'} 頁</span>`;
   tip.style.left = `${Math.min(e.clientX + 14, innerWidth - 220)}px`;
   tip.style.top = `${Math.min(e.clientY + 14, innerHeight - 70)}px`;
   tip.classList.add('show');
@@ -485,11 +546,12 @@ function petBurst() {
 function beginPlay() {
   $('gate').hidden = true;
   freeNav = false;
+  applyFur(loadFur());
   cat.set({ pos: ENTRANCE, yaw: 0.1, sit: 0, look: 1 });
   rebuildShelf();
   setState('intro');
   snapNext = true;
-  toast('#86afd8', '歡迎', '跟着貓咪 · 沿牆搵年份書 · 撳地板行過去');
+  toast(yearColor(currentYear), '歡迎', '跟着貓咪 · 沿牆搵年份書 · 撳地板行過去');
 }
 function enterAsStudent(raw) {
   const sid = String(raw || '').trim().padStart(2, '0');
@@ -607,6 +669,8 @@ async function onPointerUp(e) {
 
 
 function bindUi() {
+  buildFurSwatches();
+  applyFur(loadFur());
   $('enterStudent').onclick = () => enterAsStudent($('sidInput').value);
   $('enterTeacher').onclick = () => enterAsTeacher();
   $('sidInput').addEventListener('keydown', (e) => {
@@ -692,9 +756,20 @@ function loop(now) {
 async function boot() {
   buildWorld();
   resize();
-  cat = createCat(scene, STILL);
+  cat = createCat(scene, STILL, loadFur());
   cat.set({ pos: ENTRANCE, yaw: 0.1, sit: 0, look: 1 });
   bindUi();
+  try {
+    const gRes = await fetch('data/student-year-grades.json', { cache: 'no-store' });
+    if (gRes.ok) {
+      setGradeTable(await gRes.json());
+      console.info('[library] student-year-grades loaded');
+    } else {
+      console.warn('[library] grades fetch', gRes.status);
+    }
+  } catch (err) {
+    console.warn('[library] grades unavailable', err);
+  }
   try {
     const res = await fetch('catalog.json', { cache: 'no-store' });
     if (!res.ok) throw new Error(`catalog ${res.status}`);
@@ -709,7 +784,7 @@ async function boot() {
     console.error(err);
     toast('#e0745a', '目錄讀取失敗', String(err.message || err));
   }
-  dressFloor(FLOOR[currentYear].year, FLOOR[currentYear].color, 0);
+  dressFloor(FLOOR[currentYear].year, yearColor(currentYear), 0);
   setState('gate');
   snapNext = true;
   updateCamera(1);

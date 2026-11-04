@@ -80,10 +80,23 @@ function hopPose(h) {
   return [a > 0 && a < 1 ? 4 * a * (1 - a) * HOP_HEIGHT : 0, s0 + (s1 - s0) * u * u * (3 - 2 * u)];
 }
 
-export function createCat(scene, still = false) {
+function darkenHex(hex, factor = 0.38) {
+  const raw = String(hex || '#1e1a21').replace('#', '');
+  const n = parseInt(raw.slice(0, 6), 16);
+  if (Number.isNaN(n)) return 0x120d12;
+  const r = Math.round(((n >> 16) & 255) * factor);
+  const g = Math.round(((n >> 8) & 255) * factor);
+  const b = Math.round((n & 255) * factor);
+  return (r << 16) | (g << 8) | b;
+}
+
+export const DEFAULT_FUR = '#1e1a21';
+
+export function createCat(scene, still = false, furHex = DEFAULT_FUR) {
   const grad = toonGradient();
-  const fur = new THREE.MeshToonMaterial({ color: '#1e1a21', gradientMap: grad });
-  const line = new THREE.MeshBasicMaterial({ color: '#120d12', side: THREE.BackSide });
+  const startFur = furHex || DEFAULT_FUR;
+  const fur = new THREE.MeshToonMaterial({ color: startFur, gradientMap: grad });
+  const line = new THREE.MeshBasicMaterial({ color: darkenHex(startFur), side: THREE.BackSide });
   const root = new THREE.Group();
   const rig = new THREE.Group(); root.add(rig); // 통통 튀는 반응은 rig에만
   const add = (geo, mat, x, y, z, parent, outline = true, s = [1, 1, 1], rot = [0, 0, 0]) => {
@@ -139,6 +152,13 @@ export function createCat(scene, still = false) {
   const cat = {
     root, yaw: 0, yawTarget: 0, look: 1, lookTarget: 1, sit: 0, sitTarget: 0, phase: 0, moving: false,
     path: null, hopState: null, hopT: null, purr: 0, calm: 0, tilt: 0, lick: false,
+    furHex: startFur,
+    setFur(hex) {
+      const h = hex || DEFAULT_FUR;
+      this.furHex = h;
+      fur.color.set(h);
+      line.color.setHex(darkenHex(h));
+    },
     get pos() { return root.position; },
     headPos(v) { return head.getWorldPosition(v); },
     mouthPos(v) { return head.localToWorld(v.set(0, -0.065, -0.13)); },

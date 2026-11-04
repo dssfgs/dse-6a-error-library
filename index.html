@@ -251,6 +251,21 @@
       .desk.show { transform: none; }
       .r-box { width: 100vw; height: 100%; border-radius: 0; }
     }
+
+    .fur-pick { margin-top: 18px; }
+    .fur-pick > span {
+      display: block; font-size: 12px; font-weight: 700; color: var(--soft); margin-bottom: 8px;
+    }
+    .fur-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+    .fur-swatches button {
+      width: 34px; height: 34px; border-radius: 50%; padding: 0;
+      box-shadow: inset 0 0 0 1.5px rgba(90,50,20,.18), 0 2px 4px rgba(90,50,20,.12);
+      background: var(--fur); position: relative;
+    }
+    .fur-swatches button[aria-checked="true"] {
+      box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--coral), inset 0 0 0 1px rgba(90,50,20,.2);
+    }
+    .fur-swatches button:focus-visible { outline: 2px solid var(--coral); outline-offset: 2px; }
     @media (min-width: 761px) {
       .sheet { left: auto; right: 28px; width: 420px; bottom: 22px; border-radius: 26px; transform: translateY(calc(100% + 48px)); }
       .sheet.show { transform: none; }
@@ -277,9 +292,13 @@
     <div class="gate" id="gate">
       <div class="gate-card">
         <h1>6A 錯題書架</h1>
-        <p>輸入學號睇自己嘅錯題簿，或以教師模式瀏覽全班。入去之後跟着黑貓行到年份書架。</p>
+        <p>輸入學號睇自己嘅錯題簿，或以教師模式瀏覽全班。入去之後跟着貓咪行到年份書架。</p>
         <label for="sidInput">學號（01–22）</label>
         <input id="sidInput" inputmode="numeric" maxlength="2" placeholder="例如 07" autocomplete="off">
+        <div class="fur-pick" id="furPick">
+          <span>揀貓毛色</span>
+          <div class="fur-swatches" role="radiogroup" aria-label="貓毛色" id="furSwatches"></div>
+        </div>
         <p class="gate-err" id="gateErr"></p>
         <div class="gate-actions">
           <button type="button" id="enterStudent">進入我的書架</button>
