@@ -532,6 +532,93 @@ function pickWall(e) {
   }
   return null;
 }
+
+/** Nearest wall book the cat/player can open (PDF). */
+function nearestOpenableBook() {
+  if (!cat || !bookMeshes.length) return null;
+  // Seated at a bay: that year's book.
+  if ((state === 'shelf' || state === 'book') && !freeNav) {
+    const m = bookMeshes.find((b) => String(b.userData?.item?.year) === String(currentYear));
+    return m?.userData?.item || null;
+  }
+  if (!(state === 'roam' || state === 'intro' || (state === 'shelf' && freeNav))) return null;
+
+  const yaw = cat.yaw || 0;
+  const fwdX = -Math.sin(yaw);
+  const fwdZ = -Math.cos(yaw);
+  let best = null;
+  let bestScore = Infinity;
+  for (const m of bookMeshes) {
+    const item = m.userData?.item;
+    if (!item) continue;
+    const dx = m.position.x - cat.pos.x;
+    const dz = m.position.z - cat.pos.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist > 2.7) continue;
+    if (Math.abs(dz) > 1.2) continue;
+    // Prefer standing in the aisle near the shelf wall.
+    if (cat.pos.x < SHELF_FRONT - 3.1) continue;
+    const toLen = dist || 1e-6;
+    const dot = (fwdX * dx + fwdZ * dz) / toLen;
+    // Soft facing toward the book / shelf; still allow side-on if very close in z.
+    if (dot < -0.15 && Math.abs(dz) > 0.55) continue;
+    const score = dist - (dot > 0.25 ? 0.4 : 0) - (Math.abs(dz) < 0.5 ? 0.3 : 0);
+    if (score < bestScore) {
+      bestScore = score;
+      best = item;
+    }
+  }
+  return best;
+}
+
+function openNearestBookPdf() {
+  if (busy) return false;
+  if (!$('reader').hidden) return false;
+  if ($('gate') && !$('gate').hidden) return false;
+  const item = nearestOpenableBook();
+  if (!item) return false;
+  currentYear = String(item.year);
+  syncFloorChrome();
+  closeDesk();
+  closeSheet();
+  openPdfViewer(item);
+  toast(yearColor(item.year), `${item.year} 錯題簿`, `學號 ${item.student_id} · Enter／撳書開 PDF`);
+  return true;
+}
+
+let nearHintItemId = null;
+function updateNearBookHint() {
+  const hint = $('moveHint');
+  if (!hint) return;
+  const play = state === 'roam' || state === 'shelf' || state === 'book' || state === 'intro';
+  if (!play || busy || !$('reader').hidden) {
+    if (nearHintItemId) { hint.hidden = true; nearHintItemId = null; }
+    return;
+  }
+  // Keep WASD tip when exploring; overlay Enter when a book is in reach.
+  const item = nearestOpenableBook();
+  if (!item) {
+    if (nearHintItemId) {
+      nearHintItemId = null;
+      if (state === 'roam' || (state === 'shelf' && freeNav) || (state === 'intro' && freeNav)) {
+        hint.hidden = false;
+        hint.innerHTML = '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 或箭咀移動 · 撳地板行過去';
+      } else {
+        hint.hidden = true;
+      }
+    }
+    return;
+  }
+  const id = bookId(item);
+  if (id === nearHintItemId && !hint.hidden) return;
+  nearHintItemId = id;
+  hint.hidden = false;
+  hint.innerHTML = `<kbd>Enter</kbd> 開 ${item.year} 錯題簿 · 撳書開 PDF · 撳牌睇成績`;
+  const bar = $('shelfHint');
+  if (bar && (state === 'shelf' || state === 'roam' || state === 'book')) {
+    bar.textContent = `近 ${item.year} 冊（學號 ${item.student_id}）· Enter／撳書開 PDF · 撳班中位牌睇成績`;
+  }
+}
 function pickFloor(e) {
   if (!floorMesh) return null;
   aim(e);
@@ -551,7 +638,7 @@ function overCat(e) {
 }
 function showTip(e, item) {
   const tip = $('tip');
-  tip.innerHTML = `<b>學號 ${item.student_id}</b><span>${item.year} · 班中位 ${yearGradeLabel(item.year)} · ${item.pages || '?'} 頁</span>`;
+  tip.innerHTML = `<b>學號 ${item.student_id} · ${item.year}</b><span>撳開 PDF · 班中位 ${yearGradeLabel(item.year)} · ${item.pages || '?'} 頁</span>`;
   tip.style.left = `${Math.min(e.clientX + 14, innerWidth - 220)}px`;
   tip.style.top = `${Math.min(e.clientY + 14, innerHeight - 70)}px`;
   tip.classList.add('show');
@@ -689,12 +776,12 @@ function onPointerMove(e) {
     hideTip();
     return;
   }
-  if (state === 'shelf' && !busy && !freeNav) {
+  if ((state === 'shelf' || state === 'roam' || state === 'book') && !busy) {
     const hit = pickWall(e);
-    if (hit?.item) showTip(e, hit.item);
-    else if (hit?.year) {
+    if (hit?.kind === 'book' && hit.item) showTip(e, hit.item);
+    else if (hit?.kind === 'plate' && hit.year) {
       const tip = $('tip');
-      tip.innerHTML = `<b>${hit.year} 班成績</b><span>班中位 ${yearGradeLabel(hit.year)} · 撳睇詳情</span>`;
+      tip.innerHTML = `<b>${hit.year} 班成績</b><span>班中位 ${yearGradeLabel(hit.year)} · 撳牌睇詳情</span>`;
       tip.style.left = `${Math.min(e.clientX + 14, innerWidth - 220)}px`;
       tip.style.top = `${Math.min(e.clientY + 14, innerHeight - 80)}px`;
       tip.classList.add('show');
@@ -739,7 +826,14 @@ async function onPointerUp(e) {
   }
   if ((state === 'roam' || (state === 'shelf' && freeNav)) && !busy) {
     const hit = pickWall(e);
-    if (hit) {
+    if (hit?.kind === 'book' && hit.item) {
+      currentYear = String(hit.item.year);
+      syncFloorChrome();
+      closeDesk();
+      openPdfViewer(hit.item);
+      return;
+    }
+    if (hit?.kind === 'plate') {
       openYearResults(hit.year, hit.item);
       return;
     }
@@ -749,7 +843,14 @@ async function onPointerUp(e) {
   }
   if (state === 'shelf' && !busy) {
     const hit = pickWall(e);
-    if (hit) openYearResults(hit.year, hit.item);
+    if (hit?.kind === 'book' && hit.item) {
+      currentYear = String(hit.item.year);
+      syncFloorChrome();
+      closeDesk();
+      openPdfViewer(hit.item);
+      return;
+    }
+    if (hit?.kind === 'plate') openYearResults(hit.year, hit.item);
   }
 }
 
@@ -805,6 +906,17 @@ function bindUi() {
       if ($('sheet').classList.contains('show')) { closeSheet(); if (state === 'sign') goLobby(); return; }
       if ($('desk').classList.contains('show')) { closeDesk(); return; }
     }
+    if (e.key === 'Enter') {
+      if ($('desk').classList.contains('show') && selected) {
+        e.preventDefault();
+        openPdfViewer(selected);
+        return;
+      }
+      if (openNearestBookPdf()) {
+        e.preventDefault();
+        return;
+      }
+    }
     const moveKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
     if (moveKeys.includes(e.code)) {
       e.preventDefault();
@@ -834,6 +946,7 @@ function loop(now) {
   applyFreeMove(dt);
   cat.update(STILL ? 0.016 : dt, t);
   updateCamera(STILL ? 1 : dt);
+  updateNearBookHint();
   updateWorld();
   renderer.render(scene, camera);
   requestAnimationFrame(loop);
