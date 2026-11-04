@@ -255,13 +255,18 @@ function coverTexture(item, dims, yearColor) {
   return tex(c);
 }
 
-function pageTexture() {
+/** Page-edge texture tinted to grade colour so hallway silhouette reads from afar. */
+function pageTexture(baseColor) {
   const [c, g] = canvas(64, 256);
-  g.fillStyle = '#f8efe0'; g.fillRect(0, 0, 64, 256);
+  const bg = shade(baseColor, 0.28); // lighter tint of same hue
+  g.fillStyle = bg; g.fillRect(0, 0, 64, 256);
+  const dark = shade(baseColor, -0.22);
   for (let i = 0; i < 18; i++) {
-    g.fillStyle = `rgba(180,150,120,${0.15 + (i % 3) * 0.05})`;
+    g.fillStyle = dark;
+    g.globalAlpha = 0.18 + (i % 3) * 0.06;
     g.fillRect(0, 8 + i * 13, 64, 1);
   }
+  g.globalAlpha = 1;
   return tex(c);
 }
 
@@ -269,15 +274,17 @@ export function makeBookMesh(item, yearColor) {
   const dims = bookDims(item);
   const { t, h, d } = dims;
   const accent = yearColor || colorForItem(item);
+  const body = clothOf(item) || accent; // whole-book silhouette = grade colour
   const spine = spineTexture(item, dims, accent);
   const cover = coverTexture(item, dims, accent);
-  const pages = pageTexture();
+  const pages = pageTexture(body);
   // BoxGeometry faces: +x -x +y -y +z -z. Shelf on +X wall → spine on -x toward aisle.
+  // Top/bottom + page edges also grade-tinted so the colour blob reads from far down the hall.
   const mesh = new THREE.Mesh(rgeo(d, h, t, 0.008), [
     new THREE.MeshStandardMaterial({ map: cover, roughness: 0.85 }),
     new THREE.MeshStandardMaterial({ map: spine, roughness: 0.85 }),
-    new THREE.MeshStandardMaterial({ color: '#f3e6d3', roughness: 1 }),
-    new THREE.MeshStandardMaterial({ color: '#e8d7c0', roughness: 1 }),
+    new THREE.MeshStandardMaterial({ color: shade(body, 0.12), roughness: 1 }),
+    new THREE.MeshStandardMaterial({ color: shade(body, -0.08), roughness: 1 }),
     new THREE.MeshStandardMaterial({ map: pages, roughness: 1 }),
     new THREE.MeshStandardMaterial({ map: pages, roughness: 1 }),
   ]);
