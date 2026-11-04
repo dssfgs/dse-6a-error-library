@@ -176,6 +176,46 @@
     .d-actions .ghost { background: #f3e6d3; color: var(--ink); }
     .d-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 
+    .d-median-big {
+      display: flex; align-items: baseline; gap: 12px; margin: 14px 0 10px;
+      padding: 14px 16px; border-radius: 18px;
+      background: color-mix(in srgb, var(--fc) 22%, #fffaf0);
+      box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--fc) 45%, #fff);
+    }
+    .d-median-big span { font-size: 13px; font-weight: 700; color: var(--soft); }
+    .d-median-big b { font-size: 40px; font-weight: 900; letter-spacing: -0.04em; color: var(--fc); }
+    .d-you {
+      margin: 12px 0; padding: 12px 14px; border-radius: 16px; background: #fff6e8;
+      box-shadow: inset 0 0 0 1.5px var(--line);
+    }
+    .d-you-lab { font-size: 12px; font-weight: 800; color: #a8784f; margin-bottom: 8px; }
+    .d-you-row { display: flex; flex-wrap: wrap; gap: 14px 18px; }
+    .d-you-row .d-k { display: block; font-size: 11px; font-weight: 700; color: var(--soft); margin-bottom: 4px; }
+    .d-you-row em.d-score { display: block; margin-top: 4px; font-style: normal; font-size: 12px; color: var(--soft); }
+    .d-dist { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+    .d-dist-i {
+      font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 999px;
+      background: color-mix(in srgb, var(--fc) 28%, #fff); color: #3a2e28;
+    }
+    .d-sub { margin: 8px 0 6px; font-size: 13px; font-weight: 800; color: var(--soft); letter-spacing: 0.02em; }
+    .d-roster {
+      list-style: none; margin: 0 0 12px; padding: 0; max-height: 38vh; overflow: auto;
+      border-radius: 14px; background: #fffaf3; box-shadow: inset 0 0 0 1px var(--line);
+    }
+    .d-roster li {
+      display: grid; grid-template-columns: 36px 1fr auto; gap: 4px 8px; align-items: center;
+      padding: 8px 12px; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+      font-size: 13px;
+    }
+    .d-roster li:last-child { border-bottom: 0; }
+    .d-roster li.me { background: color-mix(in srgb, var(--coral) 14%, #fffaf3); }
+    .d-roster .d-sid { font-weight: 900; font-variant-numeric: tabular-nums; color: #6b5646; }
+    .d-roster .d-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .d-roster .d-score {
+      grid-column: 2 / -1; font-size: 11px; color: var(--soft); margin-top: -2px;
+    }
+    .d-roster .chip { justify-self: end; }
+
     .gate {
       position: absolute; inset: 0; display: grid; place-items: center; padding: 24px;
       background: radial-gradient(circle at 50% 40%, #fff9ee, #f2d8b0 70%);
@@ -285,7 +325,7 @@
     <button class="hint pill" id="hint" type="button"><span class="paw" aria-hidden="true"><svg viewBox="0 0 28 28"><ellipse cx="14" cy="18" rx="6.2" ry="5.2"/><ellipse cx="6.6" cy="11.2" rx="2.4" ry="3"/><ellipse cx="11.2" cy="7" rx="2.4" ry="3"/><ellipse cx="16.8" cy="7" rx="2.4" ry="3"/><ellipse cx="21.4" cy="11.2" rx="2.4" ry="3"/></svg></span>跟着貓咪 · 沿牆搵年份書 · 撳地板行過去</button>
     <div class="move-hint pill" id="moveHint" hidden><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 或箭咀移動 · 撳地板行過去</div>
     <div class="toast" id="toast"></div>
-    <div class="shelfbar pill"><span id="shelfHint">撳書脊打開個人錯題簿</span><button id="otherFloor" type="button">其他年份</button></div>
+    <div class="shelfbar pill"><span id="shelfHint">撳書／班中位牌睇該年成績</span><button id="otherFloor" type="button">其他年份</button></div>
     <div class="tip" id="tip"></div>
     <aside class="desk" id="desk"></aside>
     <div class="sheet" id="sheet"></div>

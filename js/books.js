@@ -69,6 +69,52 @@ export function gradeOf(studentId, year) {
   return g == null ? null : String(g);
 }
 
+export const GRADE_RANK = { '5**': 7, '5*': 6, '5': 5, '4': 4, '3': 3, '2': 2, '1': 1 };
+
+export function studentRow(studentId) {
+  if (!gradeTable) return null;
+  const sid = String(studentId).padStart(2, '0');
+  return gradeTable[sid] || null;
+}
+
+export function yearDetailOf(studentId, year) {
+  const row = studentRow(studentId);
+  if (!row) return null;
+  const y = String(year);
+  return row.yearDetails?.[y] || null;
+}
+
+/** Class roster + median + counts for one exam year. */
+export function yearResults(year) {
+  const y = String(year);
+  const median = gradeForYear(y);
+  const roster = [];
+  const counts = {};
+  if (gradeTable) {
+    for (const [sid, row] of Object.entries(gradeTable)) {
+      const g = row?.years?.[y];
+      if (g == null || g === '') continue;
+      const grade = String(g);
+      counts[grade] = (counts[grade] || 0) + 1;
+      roster.push({
+        id: sid,
+        name: row.name || `#${sid}`,
+        grade,
+        detail: row.yearDetails?.[y] || null,
+        pred: row.pred || null,
+        mean: row.mean ?? null,
+      });
+    }
+  }
+  roster.sort((a, b) => {
+    const ra = GRADE_RANK[a.grade] || 0;
+    const rb = GRADE_RANK[b.grade] || 0;
+    if (rb !== ra) return rb - ra;
+    return a.id.localeCompare(b.id);
+  });
+  return { year: y, median, roster, counts, n: roster.length };
+}
+
 export function colorForItem(item) {
   // Wall / plaque / cloth: class-median colour for that exam year.
   return colorForYear(item?.year);

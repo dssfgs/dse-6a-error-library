@@ -6,6 +6,7 @@ import {
 import {
   YEAR_FLOORS, FLOOR, placeWallBooks, pdfUrl, formatSize, bookId,
   setGradeTable, colorForYear, gradeForYear, LEVEL_LABELS, LEVEL_FALLBACK,
+  LEVEL_COLORS, gradeOf, yearDetailOf, studentRow, yearResults,
 } from './books.js';
 import { createCat, DEFAULT_FUR } from './cat.js';
 
@@ -389,29 +390,97 @@ function openFloorSheet() {
 }
 function closeSheet() { $('sheet').classList.remove('show'); }
 
-function openDesk(item) {
+function gradeChip(g) {
+  const label = LEVEL_LABELS[g] || g || '—';
+  const fc = (g && LEVEL_COLORS[g]) || LEVEL_FALLBACK;
+  return `<span class="chip" style="--fc:${fc}">${label}</span>`;
+}
+
+function openYearResults(year, item = null) {
+  const y = String(year);
   selected = item;
   freeNav = false;
-  const accent = yearColor(item.year);
-  const gl = yearGradeLabel(item.year);
-  const url = pdfUrl(item);
+  currentYear = y;
+  syncFloorChrome();
+  const accent = yearColor(y);
+  const res = yearResults(y);
+  const gl = res.median ? (LEVEL_LABELS[res.median] || res.median) : '—';
   const desk = $('desk');
+
+  let youBlock = '';
+  if (mode === 'student' && studentId) {
+    const mine = gradeOf(studentId, y);
+    const mineDetail = yearDetailOf(studentId, y);
+    const row = studentRow(studentId);
+    const pred = row?.pred ? (LEVEL_LABELS[row.pred] || row.pred) : '—';
+    youBlock = `
+      <div class="d-you">
+        <div class="d-you-lab">你（學號 ${studentId}${row?.name ? ' · ' + row.name : ''}）</div>
+        <div class="d-you-row">
+          <div><span class="d-k">呢年</span>${gradeChip(mine)}${mineDetail ? `<em class="d-score">${mineDetail}</em>` : ''}</div>
+          <div><span class="d-k">整體預測</span>${gradeChip(row?.pred)}</div>
+        </div>
+      </div>`;
+  }
+
+  const countOrder = ['5**', '5*', '5', '4', '3', '2', '1'];
+  const dist = countOrder
+    .filter((g) => res.counts[g])
+    .map((g) => `<span class="d-dist-i" style="--fc:${LEVEL_COLORS[g]}">${LEVEL_LABELS[g]} ×${res.counts[g]}</span>`)
+    .join('');
+
+  const rosterHtml = res.roster.length
+    ? `<ul class="d-roster">${res.roster.map((r) => {
+        const me = mode === 'student' && studentId && r.id === String(studentId).padStart(2, '0');
+        return `<li class="${me ? 'me' : ''}">
+          <span class="d-sid">${r.id}</span>
+          <span class="d-name">${r.name}</span>
+          ${gradeChip(r.grade)}
+          <span class="d-score">${r.detail || ''}</span>
+        </li>`;
+      }).join('')}</ul>`
+    : '<p class="d-meta">呢年未有班成績資料。</p>';
+
+  let pdfBlock = '';
+  if (item) {
+    const url = pdfUrl(item);
+    pdfBlock = `
+      <p class="d-meta">錯題簿：學號 ${item.student_id} · ${item.pages || '?'} 頁 · ${formatSize(item.size || 0)}</p>
+      <div class="d-actions">
+        <button type="button" id="openPdf">開 PDF</button>
+        <a class="ghost" href="${url}" target="_blank" rel="noopener">新分頁</a>
+        <button type="button" class="ghost" id="deskBack">關閉</button>
+      </div>`;
+  } else {
+    pdfBlock = `
+      <p class="d-meta">呢個年份架上空嘅（未有錯題簿 PDF）。</p>
+      <div class="d-actions">
+        <button type="button" class="ghost" id="deskBack">關閉</button>
+      </div>`;
+  }
+
   desk.innerHTML = `
     <div class="d-top">
-      <p class="d-eyebrow"><span class="chip" style="--fc:${accent}">${item.year}</span>
-        <span class="chip" style="--fc:${accent}">${gl}</span> ${item.class} 個人錯題簿</p>
+      <p class="d-eyebrow"><span class="chip" style="--fc:${accent}">${y}</span>
+        <span class="chip" style="--fc:${accent}">班中位 ${gl}</span> 成績詳情</p>
       <button type="button" class="x" id="deskClose">✕</button>
     </div>
-    <h2>學號 ${item.student_id}</h2>
-    <p class="d-meta">${item.pages || '?'} 頁 · ${formatSize(item.size || 0)} · 該年班中位 ${gl}</p>
-    <p class="d-meta">檔案：library/${item.path}</p>
-    <div class="d-actions">
-      <button type="button" id="openPdf">打開 PDF</button>
-      <a class="ghost" href="${url}" target="_blank" rel="noopener">新分頁</a>
-      <button type="button" class="ghost" id="deskBack">放返架</button>
-    </div>`;
+    <h2>${y} · 班中位 ${gl}</h2>
+    <p class="d-meta">${res.n ? `班有 ${res.n} 人有呢年紀錄` : '未有班紀錄'} · 書色同牌＝班中位</p>
+    ${youBlock}
+    <div class="d-median-big" style="--fc:${accent}">
+      <span>班中位</span><b>${gl}</b>
+    </div>
+    ${dist ? `<div class="d-dist">${dist}</div>` : ''}
+    <h3 class="d-sub">全班呢年</h3>
+    ${rosterHtml}
+    ${pdfBlock}`;
   desk.classList.add('show');
   setState('book');
+}
+
+function openDesk(item) {
+  openYearResults(item.year, item);
 }
 function closeDesk() {
   $('desk').classList.remove('show');
@@ -445,6 +514,23 @@ function pickBook(e) {
   aim(e);
   const hits = raycaster.intersectObjects(bookMeshes, false);
   return hits[0]?.object || null;
+}
+/** Book or 班中位 plate on the wall. */
+function pickWall(e) {
+  aim(e);
+  const targets = bookGroup.children.filter((o) => o.userData?.item || o.userData?.perfPlate);
+  const hits = raycaster.intersectObjects(targets, false);
+  const obj = hits[0]?.object;
+  if (!obj) return null;
+  if (obj.userData?.item) {
+    return { kind: 'book', item: obj.userData.item, year: String(obj.userData.item.year), mesh: obj };
+  }
+  if (obj.userData?.perfPlate) {
+    const year = String(obj.userData.year);
+    const book = bookMeshes.find((m) => String(m.userData?.item?.year) === year);
+    return { kind: 'plate', item: book?.userData?.item || null, year, mesh: obj };
+  }
+  return null;
 }
 function pickFloor(e) {
   if (!floorMesh) return null;
@@ -604,10 +690,16 @@ function onPointerMove(e) {
     return;
   }
   if (state === 'shelf' && !busy && !freeNav) {
-    const obj = pickBook(e);
-    if (obj?.userData?.item) showTip(e, obj.userData.item);
-    else hideTip();
-    canvasEl.style.cursor = obj ? 'pointer' : 'default';
+    const hit = pickWall(e);
+    if (hit?.item) showTip(e, hit.item);
+    else if (hit?.year) {
+      const tip = $('tip');
+      tip.innerHTML = `<b>${hit.year} 班成績</b><span>班中位 ${yearGradeLabel(hit.year)} · 撳睇詳情</span>`;
+      tip.style.left = `${Math.min(e.clientX + 14, innerWidth - 220)}px`;
+      tip.style.top = `${Math.min(e.clientY + 14, innerHeight - 80)}px`;
+      tip.classList.add('show');
+    } else hideTip();
+    canvasEl.style.cursor = hit ? 'pointer' : 'default';
     return;
   }
   if ((state === 'intro' || state === 'sign') && !busy) {
@@ -646,11 +738,9 @@ async function onPointerUp(e) {
     return;
   }
   if ((state === 'roam' || (state === 'shelf' && freeNav)) && !busy) {
-    const obj = pickBook(e);
-    if (obj?.userData?.item) {
-      currentYear = String(obj.userData.item.year);
-      syncFloorChrome();
-      openDesk(obj.userData.item);
+    const hit = pickWall(e);
+    if (hit) {
+      openYearResults(hit.year, hit.item);
       return;
     }
     const pt = pickFloor(e);
@@ -658,12 +748,8 @@ async function onPointerUp(e) {
     return;
   }
   if (state === 'shelf' && !busy) {
-    const obj = pickBook(e);
-    if (obj?.userData?.item) {
-      currentYear = String(obj.userData.item.year);
-      syncFloorChrome();
-      openDesk(obj.userData.item);
-    }
+    const hit = pickWall(e);
+    if (hit) openYearResults(hit.year, hit.item);
   }
 }
 
