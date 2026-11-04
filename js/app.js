@@ -1033,9 +1033,9 @@ function bindUi() {
       return;
     }
     const y = e.target.closest('[data-year]')?.dataset.year;
-    if (y) { closeSheet(); goFloor(y); return; }
+    if (y) { closeSheet(); selectYear(y, { openStats: true }); return; }
     const act = e.target.closest('[data-act]')?.dataset.act;
-    if (act === 'relobby') { closeSheet(); showGate(); }
+    if (act === 'relobby') { closeSheet(); goLobby(); return; }
     if (act === 'relogin') { closeSheet(); showGate(); }
   });
   $('desk').addEventListener('click', (e) => {
