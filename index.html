@@ -192,6 +192,13 @@
     .d-you-row { display: flex; flex-wrap: wrap; gap: 14px 18px; }
     .d-you-row .d-k { display: block; font-size: 11px; font-weight: 700; color: var(--soft); margin-bottom: 4px; }
     .d-you-row em.d-score { display: block; margin-top: 4px; font-style: normal; font-size: 12px; color: var(--soft); }
+    .d-rank { font-size: 28px; font-weight: 900; letter-spacing: -0.04em; color: var(--ink); }
+    .d-book-next {
+      margin-top: 16px; padding-top: 14px; border-top: 1px dashed color-mix(in srgb, var(--line) 80%, transparent);
+    }
+    .d-actions button:disabled {
+      opacity: 0.45; cursor: not-allowed; filter: grayscale(0.3);
+    }
     .d-dist { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
     .d-dist-i {
       font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 999px;
@@ -324,19 +331,19 @@
       <button class="pill" id="exploreBtn" type="button" title="自由行">自由行</button>
       <button class="pill" id="floorBtn" type="button"><b>2012</b><small>年份</small></button>
     </div>
-    <button class="hint pill" id="hint" type="button"><span class="paw" aria-hidden="true"><svg viewBox="0 0 28 28"><ellipse cx="14" cy="18" rx="6.2" ry="5.2"/><ellipse cx="6.6" cy="11.2" rx="2.4" ry="3"/><ellipse cx="11.2" cy="7" rx="2.4" ry="3"/><ellipse cx="16.8" cy="7" rx="2.4" ry="3"/><ellipse cx="21.4" cy="11.2" rx="2.4" ry="3"/></svg></span>左牆總表 · 右牆撳書開 PDF</button>
+    <button class="hint pill" id="hint" type="button"><span class="paw" aria-hidden="true"><svg viewBox="0 0 28 28"><ellipse cx="14" cy="18" rx="6.2" ry="5.2"/><ellipse cx="6.6" cy="11.2" rx="2.4" ry="3"/><ellipse cx="11.2" cy="7" rx="2.4" ry="3"/><ellipse cx="16.8" cy="7" rx="2.4" ry="3"/><ellipse cx="21.4" cy="11.2" rx="2.4" ry="3"/></svg></span>左牆睇排名 · 右牆開錯題簿</button>
     <div class="move-hint pill" id="moveHint" hidden><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 或箭咀移動 · 撳地板行過去</div>
     <div class="toast" id="toast"></div>
     <aside class="year-table" id="yearTable" hidden aria-hidden="true"></aside>
     <aside class="book-rail" id="bookRail" hidden aria-hidden="true"></aside>
-    <div class="shelfbar pill"><span id="shelfHint">左牆總表 · 右牆撳書開 PDF</span><button id="otherFloor" type="button">其他年份</button></div>
+    <div class="shelfbar pill"><span id="shelfHint">左牆睇排名 · 右牆開錯題簿</span><button id="otherFloor" type="button">其他年份</button></div>
     <div class="tip" id="tip"></div>
     <aside class="desk" id="desk"></aside>
     <div class="sheet" id="sheet"></div>
     <div class="gate" id="gate">
       <div class="gate-card">
         <h1>6A 錯題書架</h1>
-        <p>輸入學號睇自己嘅錯題簿，或以教師模式瀏覽。走廊左邊係年份總表，右邊係可撳嘅錯題書。</p>
+        <p>輸入學號進入。左牆年份總表睇排名；睇完可去錯題簿。右牆書直接開錯題簿。</p>
         <label for="sidInput">學號（01–22）</label>
         <input id="sidInput" inputmode="numeric" maxlength="2" placeholder="例如 07" autocomplete="off">
         <div class="fur-pick" id="furPick">

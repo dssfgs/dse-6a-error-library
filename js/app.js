@@ -254,8 +254,8 @@ function syncFloorChrome() {
   const who = mode === 'student' ? `學號 ${studentId}` : '教師代表冊';
   const nWall = bookMeshes.length;
   $('shelfHint').textContent = nWall
-    ? `${who} · ${floor.year} · 左牆總表 · 右牆 ${nWall} 本書`
-    : '暫時未有錯題簿 · 左牆總表仍可睇成績';
+    ? `${who} · ${floor.year} · 左牆排名 · 右牆 ${nWall} 本錯題簿`
+    : '暫時未有錯題簿 · 左牆仍可睇排名';
 }
 function itemForYear(year) {
   const y = String(year);
@@ -266,8 +266,8 @@ function itemForYear(year) {
 function refreshSummaryBoard({ keepScroll = false } = {}) {
   const title = '年份總表';
   const subtitle = mode === 'student'
-    ? `學號 ${studentId} · 撳年份睇成績（全部年份）`
-    : '教師 · 撳年份睇班成績（全部年份）';
+    ? `學號 ${studentId} · 撳年份睇排名（唔含錯題簿）`
+    : '教師 · 撳年份睇班排名（唔含錯題簿）';
   const rows = YEAR_FLOORS.map((f) => {
     const y = String(f.year);
     const item = itemForYear(y);
@@ -275,14 +275,16 @@ function refreshSummaryBoard({ keepScroll = false } = {}) {
     const medLab = median ? (LEVEL_LABELS[median] || median) : '—';
     const mine = mode === 'student' && studentId ? gradeOf(studentId, y) : null;
     const mineLab = mine ? (LEVEL_LABELS[mine] || mine) : null;
+    const rank = mode === 'student' && studentId ? rankOfStudent(y, studentId) : null;
     const accent = mode === 'student' && mine
       ? (LEVEL_COLORS[mine] || LEVEL_FALLBACK)
       : colorForYear(y);
     return {
       year: y,
       you: mineLab,
+      rank,
       median: medLab,
-      hasPdf: !!item,
+      hasPdf: !!item, // kept for panel button only; not shown as board primary
       accent,
     };
   });
@@ -308,7 +310,7 @@ function selectYear(year, { openPdf = false, openStats = false, travelTo = false
     return Promise.resolve();
   }
   if (travelTo) return goFloor(y);
-  toast(yearColor(y), `${y}`, item ? '行去右邊書 · 撳書或 Enter 開 PDF' : '呢年未有 PDF');
+  toast(yearColor(y), `${y}`, '左牆＝排名 · 右牆書／「去錯題簿」開簿');
   return Promise.resolve();
 }
 
@@ -383,7 +385,7 @@ async function travel(dest) {
     cat.face(-Math.PI / 2);
     await sleep(180);
     const floor = floorOf(currentYear);
-    toast(yearColor(currentYear), floor.name, `到咗 · 撳右牆書／Enter 開 PDF · 左牆總表睇成績`);
+    toast(yearColor(currentYear), floor.name, `到咗 · 左牆睇排名 · 右牆書＝錯題簿`);
     if (MOBILE) {
       // Phone: stay on the floor for tap-to-walk.
       freeNav = true;
@@ -441,8 +443,8 @@ function openFloorSheet() {
     </button>`;
   }).join('');
   const whoLine = mode === 'student'
-    ? `學號 <b>${studentId}</b>：右牆每年一本；書色＝你嗰年等級 · 左牆＝總表`
-    : '教師模式：右牆代表冊（優先 01）；書色＝班中位 · 左牆＝總表';
+    ? `學號 <b>${studentId}</b>：左牆＝排名；右牆書＝錯題簿`
+    : '教師模式：左牆＝班排名；右牆書＝錯題簿';
   el.innerHTML = `
     <div class="grab"></div>
     <header>
@@ -464,9 +466,18 @@ function gradeChip(g) {
   return `<span class="chip" style="--fc:${fc}">${label}</span>`;
 }
 
+/** 1-based class rank for a student in that year (by grade order); null if absent. */
+function rankOfStudent(year, sid) {
+  if (sid == null) return null;
+  const id = String(sid).padStart(2, '0');
+  const roster = yearResults(year).roster || [];
+  const idx = roster.findIndex((r) => r.id === id);
+  return idx >= 0 ? idx + 1 : null;
+}
+
 function openYearResults(year, item = null) {
   const y = String(year);
-  selected = item;
+  selected = item || itemForYear(y);
   freeNav = false;
   currentYear = y;
   syncFloorChrome();
@@ -474,18 +485,19 @@ function openYearResults(year, item = null) {
   const res = yearResults(y);
   const gl = res.median ? (LEVEL_LABELS[res.median] || res.median) : '—';
   const desk = $('desk');
+  const myRank = mode === 'student' && studentId ? rankOfStudent(y, studentId) : null;
 
   let youBlock = '';
   if (mode === 'student' && studentId) {
     const mine = gradeOf(studentId, y);
     const mineDetail = yearDetailOf(studentId, y);
     const row = studentRow(studentId);
-    const pred = row?.pred ? (LEVEL_LABELS[row.pred] || row.pred) : '—';
     youBlock = `
       <div class="d-you">
-        <div class="d-you-lab">你（學號 ${studentId}${row?.name ? ' · ' + row.name : ''}）</div>
+        <div class="d-you-lab">你嘅排名（學號 ${studentId}${row?.name ? ' · ' + row.name : ''}）</div>
         <div class="d-you-row">
-          <div><span class="d-k">呢年</span>${gradeChip(mine)}${mineDetail ? `<em class="d-score">${mineDetail}</em>` : ''}</div>
+          <div><span class="d-k">名次</span><b class="d-rank">${myRank != null ? `#${myRank} / ${res.n || '—'}` : '未上榜'}</b></div>
+          <div><span class="d-k">呢年等級</span>${gradeChip(mine)}${mineDetail ? `<em class="d-score">${mineDetail}</em>` : ''}</div>
           <div><span class="d-k">整體預測</span>${gradeChip(row?.pred)}</div>
         </div>
       </div>`;
@@ -498,51 +510,58 @@ function openYearResults(year, item = null) {
     .join('');
 
   const rosterHtml = res.roster.length
-    ? `<ul class="d-roster">${res.roster.map((r) => {
+    ? `<ul class="d-roster">${res.roster.map((r, i) => {
         const me = mode === 'student' && studentId && r.id === String(studentId).padStart(2, '0');
         return `<li class="${me ? 'me' : ''}">
-          <span class="d-sid">${r.id}</span>
-          <span class="d-name">${r.name}</span>
+          <span class="d-sid">#${i + 1}</span>
+          <span class="d-name">${r.id} · ${r.name}</span>
           ${gradeChip(r.grade)}
           <span class="d-score">${r.detail || ''}</span>
         </li>`;
       }).join('')}</ul>`
-    : '<p class="d-meta">呢年未有班成績資料。</p>';
+    : '<p class="d-meta">呢年未有班排名資料。</p>';
 
-  let pdfBlock = '';
-  if (item) {
-    const url = pdfUrl(item);
-    pdfBlock = `
-      <p class="d-meta">錯題簿：學號 ${item.student_id} · ${item.pages || '?'} 頁 · ${formatSize(item.size || 0)}</p>
-      <div class="d-actions">
-        <button type="button" id="openPdf">開 PDF</button>
-        <a class="ghost" href="${url}" target="_blank" rel="noopener">新分頁</a>
-        <button type="button" class="ghost" id="deskBack">關閉</button>
+  // Ranking first; 錯題簿 is a follow-up option (not part of 總表 itself).
+  const book = selected;
+  let bookBlock;
+  if (book) {
+    const url = pdfUrl(book);
+    bookBlock = `
+      <div class="d-book-next">
+        <p class="d-meta">睇完排名之後，可以去呢年嘅錯題簿（右牆書亦都開到）。</p>
+        <div class="d-actions">
+          <button type="button" id="openPdf">去錯題簿</button>
+          <a class="ghost" href="${url}" target="_blank" rel="noopener">新分頁開簿</a>
+          <button type="button" class="ghost" id="deskBack">關閉</button>
+        </div>
       </div>`;
   } else {
-    pdfBlock = `
-      <p class="d-meta">呢個年份架上空嘅（未有錯題簿 PDF）。</p>
-      <div class="d-actions">
-        <button type="button" class="ghost" id="deskBack">關閉</button>
+    bookBlock = `
+      <div class="d-book-next">
+        <p class="d-meta">呢年未有錯題簿 PDF · 只可以睇排名。</p>
+        <div class="d-actions">
+          <button type="button" id="openPdf" disabled title="未有錯題簿">去錯題簿（未有）</button>
+          <button type="button" class="ghost" id="deskBack">關閉</button>
+        </div>
       </div>`;
   }
 
   desk.innerHTML = `
     <div class="d-top">
       <p class="d-eyebrow"><span class="chip" style="--fc:${accent}">${y}</span>
-        <span class="chip" style="--fc:${accent}">班中位 ${gl}</span> 成績詳情</p>
+        <span class="chip" style="--fc:${accent}">班中位 ${gl}</span> 年份排名</p>
       <button type="button" class="x" id="deskClose">✕</button>
     </div>
-    <h2>${y} · 班中位 ${gl}</h2>
-    <p class="d-meta">${res.n ? `班有 ${res.n} 人有呢年紀錄` : '未有班紀錄'} · 左牆總表＝班中位／你嘅等級；右牆書色＝個人等級</p>
+    <h2>${y} · 班排名</h2>
+    <p class="d-meta">${res.n ? `共 ${res.n} 人上榜` : '未有班紀錄'} · 左牆總表只顯示排名；錯題簿請用下方按鈕或右牆書</p>
     ${youBlock}
     <div class="d-median-big" style="--fc:${accent}">
       <span>班中位</span><b>${gl}</b>
     </div>
     ${dist ? `<div class="d-dist">${dist}</div>` : ''}
-    <h3 class="d-sub">全班呢年</h3>
+    <h3 class="d-sub">全班排名（高 → 低）</h3>
     ${rosterHtml}
-    ${pdfBlock}`;
+    ${bookBlock}`;
   desk.classList.add('show');
   setState('book');
 }
@@ -682,7 +701,7 @@ function updateNearBookHint() {
   hint.innerHTML = `<kbd>Enter</kbd> 開 ${item.year} 錯題簿`;
   const bar = $('shelfHint');
   if (bar && (state === 'shelf' || state === 'roam' || state === 'book')) {
-    bar.textContent = `近右牆 ${item.year} 書 · Enter／撳書開 PDF · 左牆總表睇成績`;
+    bar.textContent = `近右牆 ${item.year} 錯題簿 · Enter／撳書開 PDF · 左牆睇排名`;
   }
 }
 function pickFloor(e) {
@@ -830,7 +849,7 @@ function beginPlay() {
   rebuildShelf();
   setState('intro');
   snapNext = true;
-  toast(yearColor(currentYear), '歡迎', '跟着貓咪 · 左牆總表 · 右牆撳書開 PDF');
+  toast(yearColor(currentYear), '歡迎', '左牆睇排名 · 右牆／排名後入錯題簿');
 }
 function enterAsStudent(raw) {
   const sid = String(raw || '').trim().padStart(2, '0');
@@ -886,7 +905,7 @@ function onPointerMove(e) {
     const by = pickBoardYear(e);
     if (by && by.year) {
       const tip = $('tip');
-      tip.innerHTML = `<b>${by.year} 總表</b><span>撳睇成績詳情${by.hasPdf ? ' · 右邊有書' : ''}</span>`;
+      tip.innerHTML = `<b>${by.year} 排名</b><span>撳睇班排名${by.hasPdf ? ' · 之後可去錯題簿' : ''}</span>`;
       tip.style.left = `${Math.min(e.clientX + 14, innerWidth - 220)}px`;
       tip.style.top = `${Math.min(e.clientY + 14, innerHeight - 80)}px`;
       tip.classList.add('show');

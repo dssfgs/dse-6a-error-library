@@ -223,7 +223,7 @@ const BOARD_MIN_ROW = 92;
 const BOARD_HEADER = 188;
 const BOARD_FOOTER = 70;
 
-/** Paint left-wall 總表. rows: [{year, you, median, hasPdf, accent}] — scrollable if needed. */
+/** Paint left-wall 總表 (ranking only). rows: [{year, you, rank, median, hasPdf, accent}] */
 export function paintSummaryBoard(title, subtitle, rows, scrollY = null) {
   if (!board.canvas || !board.tex) return;
   const c = board.canvas;
@@ -261,7 +261,7 @@ export function paintSummaryBoard(title, subtitle, rows, scrollY = null) {
   g.fillText(title || '年份總表', W / 2, 82);
   g.fillStyle = '#d8c4a8';
   g.font = '700 26px "Noto Sans TC", system-ui, sans-serif';
-  const sub = subtitle || '撳年份睇成績 · 右邊撳書開 PDF';
+  const sub = subtitle || '撳年份睇排名 · 錯題簿喺右牆／睇完排名再入';
   const scrollHint = maxScroll > 0 ? ' · 轆輪／拖曳睇晒' : ` · 共 ${list.length} 年`;
   g.fillText(sub + (maxScroll > 0 ? ' · 轆輪／拖曳睇晒' : ''), W / 2, 128);
 
@@ -272,10 +272,11 @@ export function paintSummaryBoard(title, subtitle, rows, scrollY = null) {
   g.font = '800 22px "Noto Sans TC", system-ui, sans-serif';
   g.textAlign = 'left';
   g.fillText('年份', 56, viewTop - 10);
-  g.fillText('你等級', 250, viewTop - 10);
-  g.fillText('班中位', 480, viewTop - 10);
+  g.fillText('你等級', 230, viewTop - 10);
+  g.fillText('名次', 430, viewTop - 10);
+  g.fillText('班中位', 580, viewTop - 10);
   g.textAlign = 'right';
-  g.fillText('PDF', W - 56, viewTop - 10);
+  g.fillText('排名', W - 48, viewTop - 10);
 
   // Clip row area
   g.save();
@@ -305,24 +306,29 @@ export function paintSummaryBoard(title, subtitle, rows, scrollY = null) {
     const youTxt = r.you != null ? String(r.you) : '—';
     g.fillStyle = r.you != null ? (r.accent || '#3a2a20') : '#9a8570';
     g.font = `900 ${Math.min(48, rowH * 0.45)}px Gaegu, "Noto Sans TC", sans-serif`;
-    g.fillText(youTxt, 250, mid);
+    g.fillText(youTxt, 230, mid);
+
+    // Rank (名次) — ranking board, not 錯題簿
+    const rankTxt = r.rank != null ? `#${r.rank}` : '—';
+    g.fillStyle = r.rank != null ? '#2a1e16' : '#9a8570';
+    g.font = `900 ${Math.min(44, rowH * 0.42)}px Gaegu, "Noto Sans TC", sans-serif`;
+    g.fillText(rankTxt, 430, mid);
 
     g.fillStyle = '#5a4638';
     g.font = `800 ${Math.min(42, rowH * 0.4)}px Gaegu, "Noto Sans TC", sans-serif`;
-    g.fillText(String(r.median || '—'), 500, mid);
+    g.fillText(String(r.median || '—'), 590, mid);
 
-    const pdfOk = !!r.hasPdf;
-    const badgeW = 140, badgeH = Math.min(48, rowH - 24);
-    const bx = W - 52 - badgeW, by = mid - badgeH / 2;
-    g.fillStyle = pdfOk ? '#2f5b55' : '#a89078';
+    const badgeW = 120, badgeH = Math.min(44, rowH - 28);
+    const bx = W - 48 - badgeW, by = mid - badgeH / 2;
+    g.fillStyle = '#2a221c';
     roundRect(g, bx, by, badgeW, badgeH, 12); g.fill();
     g.fillStyle = '#fff8ec';
-    g.font = '800 24px "Noto Sans TC", system-ui, sans-serif';
+    g.font = '800 22px "Noto Sans TC", system-ui, sans-serif';
     g.textAlign = 'center';
-    g.fillText(pdfOk ? '有 PDF' : '無 PDF', bx + badgeW / 2, mid);
+    g.fillText('睇排名', bx + badgeW / 2, mid);
 
     if (y1 >= viewTop && y0 <= viewBot) {
-      hit.push({ year: String(r.year), y0: Math.max(y0, viewTop), y1: Math.min(y1, viewBot), hasPdf: pdfOk });
+      hit.push({ year: String(r.year), y0: Math.max(y0, viewTop), y1: Math.min(y1, viewBot), hasPdf: !!r.hasPdf });
     }
   });
   g.restore();
@@ -343,7 +349,7 @@ export function paintSummaryBoard(title, subtitle, rows, scrollY = null) {
   const first = list.length ? list[Math.min(list.length - 1, Math.floor(scrollY / rowH))]?.year : '—';
   const lastIdx = list.length ? Math.min(list.length - 1, Math.floor((scrollY + viewH - 1) / rowH)) : 0;
   const last = list.length ? list[lastIdx]?.year : '—';
-  g.fillText(maxScroll > 0 ? `顯示 ${first}–${last} · 共 ${list.length} 年` : `全部 ${list.length} 年均可撳`, 40, (viewBot + H) / 2);
+  g.fillText(maxScroll > 0 ? `顯示 ${first}–${last} · 共 ${list.length} 年排名` : `全部 ${list.length} 年 · 撳睇排名`, 40, (viewBot + H) / 2);
 
   // ▲ ▼ hit zones (pixel space)
   const btn = 56;
