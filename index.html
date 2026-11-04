@@ -32,7 +32,7 @@
     #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
     .ui { position: fixed; inset: 0; pointer-events: none; }
     .ui button, .ui a, .sheet, .desk, .gate, .ui input, .reader,
-    .shelfbar, .tools, .hint, .move-hint { pointer-events: auto; }
+    .shelfbar, .tools, .hint, .move-hint, .year-table, .book-rail { pointer-events: auto; }
     .pill { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; background: var(--cream); box-shadow: var(--shadow); font-weight: 700; }
     [hidden] { display: none !important; }
 
@@ -322,17 +322,31 @@
       <button class="pill" id="exploreBtn" type="button" title="自由行">自由行</button>
       <button class="pill" id="floorBtn" type="button"><b>2012</b><small>年份</small></button>
     </div>
-    <button class="hint pill" id="hint" type="button"><span class="paw" aria-hidden="true"><svg viewBox="0 0 28 28"><ellipse cx="14" cy="18" rx="6.2" ry="5.2"/><ellipse cx="6.6" cy="11.2" rx="2.4" ry="3"/><ellipse cx="11.2" cy="7" rx="2.4" ry="3"/><ellipse cx="16.8" cy="7" rx="2.4" ry="3"/><ellipse cx="21.4" cy="11.2" rx="2.4" ry="3"/></svg></span>跟着貓咪 · 沿牆搵年份書 · 撳地板行過去</button>
+    <button class="hint pill" id="hint" type="button"><span class="paw" aria-hidden="true"><svg viewBox="0 0 28 28"><ellipse cx="14" cy="18" rx="6.2" ry="5.2"/><ellipse cx="6.6" cy="11.2" rx="2.4" ry="3"/><ellipse cx="11.2" cy="7" rx="2.4" ry="3"/><ellipse cx="16.8" cy="7" rx="2.4" ry="3"/><ellipse cx="21.4" cy="11.2" rx="2.4" ry="3"/></svg></span>左邊總表揀年份 · 右邊撳書開 PDF</button>
     <div class="move-hint pill" id="moveHint" hidden><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 或箭咀移動 · 撳地板行過去</div>
     <div class="toast" id="toast"></div>
-    <div class="shelfbar pill"><span id="shelfHint">撳書／Enter 開 PDF · 撳班中位牌睇成績</span><button id="otherFloor" type="button">其他年份</button></div>
+    <aside class="year-table" id="yearTable" aria-label="年份總表" hidden>
+      <header>
+        <h2>年份總表</h2>
+        <span id="ytWho">—</span>
+      </header>
+      <ul class="yt-list" id="ytList"></ul>
+    </aside>
+    <aside class="book-rail" id="bookRail" aria-label="錯題書" hidden>
+      <header>
+        <h2>錯題書</h2>
+        <span id="brHint">撳書開 PDF</span>
+      </header>
+      <div class="br-list" id="brList"></div>
+    </aside>
+    <div class="shelfbar pill"><span id="shelfHint">左邊總表揀年份 · 右邊撳書開 PDF</span><button id="otherFloor" type="button" hidden>其他年份</button></div>
     <div class="tip" id="tip"></div>
     <aside class="desk" id="desk"></aside>
     <div class="sheet" id="sheet"></div>
     <div class="gate" id="gate">
       <div class="gate-card">
         <h1>6A 錯題書架</h1>
-        <p>輸入學號睇自己嘅錯題簿，或以教師模式瀏覽全班。入去之後跟着貓咪行到年份書架。</p>
+        <p>輸入學號睇自己嘅錯題簿，或以教師模式瀏覽。入去之後左邊總表揀年份，右邊撳書開 PDF。</p>
         <label for="sidInput">學號（01–22）</label>
         <input id="sidInput" inputmode="numeric" maxlength="2" placeholder="例如 07" autocomplete="off">
         <div class="fur-pick" id="furPick">

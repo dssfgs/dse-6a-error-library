@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import {
   QS, STILL, MOBILE, renderer, scene, camera, buildWorld, resize, updateWorld, dressFloor,
-  SHELF_FRONT, rowY, X0, X1, Z0, Z1, floorMesh, board, yearBayZ,
+  SHELF_FRONT, rowY, X0, X1, Z0, Z1, floorMesh, board, yearBayZ, FEAT_Z,
 } from './world.js';
 import {
   YEAR_FLOORS, FLOOR, placeWallBooks, pdfUrl, formatSize, bookId,
   setGradeTable, setBookColorMode, colorForYear, gradeForYear, LEVEL_LABELS, LEVEL_FALLBACK,
-  LEVEL_COLORS, gradeOf, yearDetailOf, studentRow, yearResults,
+  LEVEL_COLORS, gradeOf, yearDetailOf, studentRow, yearResults, RIGHT_SHELF_Z,
 } from './books.js';
 import { createCat, DEFAULT_FUR } from './cat.js';
 
@@ -106,6 +106,12 @@ function fade(on, ms = 500) {
 function setState(s) {
   state = s;
   document.body.dataset.state = s;
+  const lib = s === 'shelf' || s === 'book' || s === 'roam';
+  document.body.classList.toggle('library', lib);
+  const yt = $('yearTable');
+  const br = $('bookRail');
+  if (yt) yt.hidden = !lib;
+  if (br) br.hidden = !lib;
   syncMoveHint();
 }
 function toast(color, title, sub = '') {
@@ -155,12 +161,13 @@ function shelfPose() {
     // Bias toward books without leaving the bay frame (sparse student shelves stay readable).
     cy = Math.min(yMax - 0.35, Math.max(yMin + 0.35, cy * 0.45 + avgY * 0.55));
   }
-  if (portrait) { dist = 1.45; cy = bookMeshes.length ? Math.min(1.65, Math.max(1.25, cy)) : 1.45; }
-  const z = yearBayZ(currentYear);
-  // Prefer the active year's book height when present.
+  if (portrait) { dist = 1.55; cy = bookMeshes.length ? Math.min(1.7, Math.max(1.2, cy)) : 1.45; }
   const mine = bookMeshes.find((m) => String(m.userData?.item?.year) === String(currentYear));
+  const z = mine?.userData?.bayZ ?? mine?.position?.z ?? RIGHT_SHELF_Z;
   if (mine) cy = THREE.MathUtils.clamp(mine.position.y, yMin + 0.25, yMax - 0.25);
-  camPos.set(SHELF_FRONT - dist, cy + 0.05, z);
+  // Pull back a bit so left/right HTML panels frame the 3D shelf.
+  dist = Math.max(dist, portrait ? 1.7 : 2.15);
+  camPos.set(SHELF_FRONT - dist, cy + 0.08, z);
   camLook.set(SHELF_FRONT, cy, z);
 }
 const holdCam = () => {};
@@ -237,20 +244,119 @@ function syncFloorChrome() {
   const floor = FLOOR[currentYear];
   const accent = yearColor(currentYear);
   const nHere = bookMeshes.filter((m) => String(m.userData?.item?.year) === String(currentYear)).length;
-  dressFloor(floor.year, accent, nHere, yearBayZ(currentYear));
+  dressFloor(floor.year, accent, nHere, RIGHT_SHELF_Z);
   $('floorBtn').style.setProperty('--fcd', accent);
   $('floorBtn').innerHTML = `<b>${floor.name}</b><small>${yearGradeLabel(currentYear)}</small>`;
   const who = mode === 'student' ? `學號 ${studentId}` : '教師代表冊';
   const nWall = bookMeshes.length;
   $('shelfHint').textContent = nWall
-    ? `沿牆 ${nWall} 個年份 · ${who} · 而家 ${floor.year}（班中位 ${yearGradeLabel(currentYear)}）`
-    : '暫時未有錯題簿';
+    ? `${who} · 已選 ${floor.year} · 左邊總表 · 右邊 ${nWall} 本可撳`
+    : '暫時未有錯題簿 · 左邊總表仍可睇成績';
 }
+function itemForYear(year) {
+  const y = String(year);
+  return wallItems().find((i) => String(i.year) === y) || null;
+}
+
+function colorForItemSafe(item) {
+  const g = mode === 'student'
+    ? gradeOf(item.student_id, item.year)
+    : gradeForYear(item.year);
+  if (g && LEVEL_COLORS[g]) return LEVEL_COLORS[g];
+  return colorForYear(item.year) || LEVEL_FALLBACK;
+}
+
+function renderYearTable() {
+  const list = $('ytList');
+  const who = $('ytWho');
+  if (!list) return;
+  if (who) who.textContent = mode === 'student' ? `學號 ${studentId}` : '教師（班中位書色）';
+  list.innerHTML = YEAR_FLOORS.map((f) => {
+    const y = String(f.year);
+    const item = itemForYear(y);
+    const median = gradeForYear(y);
+    const medLab = median ? (LEVEL_LABELS[median] || median) : '—';
+    const mine = mode === 'student' && studentId ? gradeOf(studentId, y) : null;
+    const mineLab = mine ? (LEVEL_LABELS[mine] || mine) : null;
+    const accent = mode === 'student' && mine
+      ? (LEVEL_COLORS[mine] || LEVEL_FALLBACK)
+      : colorForYear(y);
+    const on = y === String(currentYear) ? ' on' : '';
+    const status = item ? '有 PDF' : '無 PDF';
+    const meta = mode === 'student'
+      ? `你 <b>${mineLab || '—'}</b> · 班中位 <b>${medLab}</b> · ${status}`
+      : `班中位 <b>${medLab}</b> · ${status}`;
+    return `<li class="yt-row${on}" data-year="${y}" style="--fc:${accent}">
+      <button type="button" class="yt-main" data-select-year="${y}">
+        <span class="yt-year">${y}</span>
+        <span class="yt-meta">${meta}</span>
+      </button>
+      <span class="yt-acts">
+        <button type="button" data-year-pdf="${y}" ${item ? '' : 'disabled'}>開 PDF</button>
+        <button type="button" class="ghost" data-year-stats="${y}">成績</button>
+      </span>
+    </li>`;
+  }).join('');
+}
+
+function renderBookRail() {
+  const list = $('brList');
+  const hint = $('brHint');
+  if (!list) return;
+  const items = wallItems();
+  if (hint) hint.textContent = items.length ? '撳書脊開 PDF' : '暫時未有冊';
+  if (!items.length) {
+    list.innerHTML = '<p class="br-empty">呢個身份暫時未有錯題簿 PDF。<br>左邊總表仍可睇班中位／成績。</p>';
+    return;
+  }
+  list.innerHTML = items.map((item) => {
+    const y = String(item.year);
+    const g = mode === 'student'
+      ? (gradeOf(item.student_id, y) || gradeForYear(y))
+      : gradeForYear(y);
+    const fc = colorForItemSafe(item);
+    const gl = g ? (LEVEL_LABELS[g] || g) : '—';
+    const on = y === String(currentYear) ? ' on' : '';
+    return `<button type="button" class="br-card${on}" data-open-year="${y}" style="--fc:${fc}">
+      <span class="br-spine">${y}<br>${gl}</span>
+      <span class="br-body">
+        <b>${y} 錯題簿</b>
+        <span>學號 ${item.student_id} · ${item.pages || '?'} 頁 · 撳開 PDF</span>
+      </span>
+    </button>`;
+  }).join('');
+}
+
+function refreshLibraryPanels() {
+  renderYearTable();
+  renderBookRail();
+}
+
+function selectYear(year, { openPdf = false, openStats = false } = {}) {
+  const y = String(year);
+  currentYear = y;
+  syncFloorChrome();
+  refreshLibraryPanels();
+  snapNext = true;
+  const item = itemForYear(y);
+  if (openPdf && item) {
+    closeDesk();
+    openPdfViewer(item);
+    return;
+  }
+  if (openStats) {
+    openYearResults(y, item);
+    return;
+  }
+  toast(yearColor(y), `${y}`, item ? '右邊撳書開 PDF · 或撳「成績」' : '呢年未有 PDF · 可撳「成績」睇班表現');
+}
+
 function rebuildShelf() {
   setBookColorMode(mode === 'student' ? 'student' : 'median');
   clearBooks();
   bookMeshes = placeWallBooks(wallItems(), bookGroup);
   syncFloorChrome();
+  refreshLibraryPanels();
   closeDesk();
 }
 
@@ -534,38 +640,23 @@ function pickWall(e) {
   return null;
 }
 
-/** Nearest wall book the cat/player can open (PDF). */
+/** Selected / nearest right-shelf book the player can open (PDF). */
 function nearestOpenableBook() {
-  if (!cat || !bookMeshes.length) return null;
-  // Seated at a bay: that year's book.
-  if ((state === 'shelf' || state === 'book') && !freeNav) {
-    const m = bookMeshes.find((b) => String(b.userData?.item?.year) === String(currentYear));
-    return m?.userData?.item || null;
+  if (!bookMeshes.length) return null;
+  if (state === 'shelf' || state === 'book' || state === 'roam') {
+    const cur = bookMeshes.find((b) => String(b.userData?.item?.year) === String(currentYear));
+    if (cur?.userData?.item) return cur.userData.item;
   }
-  if (!(state === 'roam' || state === 'intro' || (state === 'shelf' && freeNav))) return null;
-
-  const yaw = cat.yaw || 0;
-  const fwdX = -Math.sin(yaw);
-  const fwdZ = -Math.cos(yaw);
+  if (!cat) return bookMeshes[0]?.userData?.item || null;
   let best = null;
   let bestScore = Infinity;
   for (const m of bookMeshes) {
     const item = m.userData?.item;
     if (!item) continue;
-    const dx = m.position.x - cat.pos.x;
-    const dz = m.position.z - cat.pos.z;
-    const dist = Math.hypot(dx, dz);
-    if (dist > 2.7) continue;
-    if (Math.abs(dz) > 1.2) continue;
-    // Prefer standing in the aisle near the shelf wall.
-    if (cat.pos.x < SHELF_FRONT - 3.1) continue;
-    const toLen = dist || 1e-6;
-    const dot = (fwdX * dx + fwdZ * dz) / toLen;
-    // Soft facing toward the book / shelf; still allow side-on if very close in z.
-    if (dot < -0.15 && Math.abs(dz) > 0.55) continue;
-    const score = dist - (dot > 0.25 ? 0.4 : 0) - (Math.abs(dz) < 0.5 ? 0.3 : 0);
-    if (score < bestScore) {
-      bestScore = score;
+    const dist = Math.hypot(m.position.x - cat.pos.x, m.position.z - cat.pos.z);
+    if (dist > 3.2) continue;
+    if (dist < bestScore) {
+      bestScore = dist;
       best = item;
     }
   }
@@ -614,10 +705,10 @@ function updateNearBookHint() {
   if (id === nearHintItemId && !hint.hidden) return;
   nearHintItemId = id;
   hint.hidden = false;
-  hint.innerHTML = `<kbd>Enter</kbd> 開 ${item.year} 錯題簿 · 撳書開 PDF · 撳牌睇成績`;
+  hint.innerHTML = `<kbd>Enter</kbd> 開 ${item.year} 錯題簿`;
   const bar = $('shelfHint');
   if (bar && (state === 'shelf' || state === 'roam' || state === 'book')) {
-    bar.textContent = `近 ${item.year} 冊（學號 ${item.student_id}）· Enter／撳書開 PDF · 撳班中位牌睇成績`;
+    bar.textContent = `已選 ${item.year} · Enter／右邊撳書開 PDF · 總表「成績」睇詳情`;
   }
 }
 function pickFloor(e) {
@@ -722,12 +813,16 @@ function petBurst() {
 function beginPlay() {
   $('gate').hidden = true;
   freeNav = false;
+  keys.clear();
   applyFur(loadFur());
-  cat.set({ pos: ENTRANCE, yaw: 0.1, sit: 0, look: 1 });
   rebuildShelf();
-  setState('intro');
+  // Place cat in front of the compact right shelf; skip hallway year crawl.
+  const seat = V3(SHELF_FRONT - 1.35, 0, RIGHT_SHELF_Z);
+  cat.set({ pos: seat, yaw: Math.PI / 2, sit: 0.2, look: 0.4 });
+  cat.face?.(Math.PI / 2);
+  setState('shelf');
   snapNext = true;
-  toast(yearColor(currentYear), '歡迎', '跟着貓咪 · 沿牆搵年份書 · 撳地板行過去');
+  toast(yearColor(currentYear), '歡迎', '左邊總表揀年份 · 右邊撳書開 PDF');
 }
 function enterAsStudent(raw) {
   const sid = String(raw || '').trim().padStart(2, '0');
@@ -759,6 +854,11 @@ function showGate() {
   keys.clear();
   cat?.stop?.();
   $('gate').hidden = false;
+  document.body.classList.remove('library');
+  const yt = $('yearTable');
+  const br = $('bookRail');
+  if (yt) yt.hidden = true;
+  if (br) br.hidden = true;
   setState('gate');
   cat?.set({ pos: ENTRANCE, yaw: 0.1, sit: 0, look: 1 });
   snapNext = true;
@@ -866,11 +966,11 @@ function bindUi() {
   $('sidInput').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') enterAsStudent($('sidInput').value);
   });
-  $('floorBtn').onclick = () => { if (!busy) openFloorSheet(); };
-  $('otherFloor').onclick = () => { if (!busy) openFloorSheet(); };
+  $('floorBtn').onclick = () => { if (!busy) { $('yearTable')?.scrollIntoView?.({ block: 'nearest' }); toast(yearColor(currentYear), '年份總表', '用左邊總表揀年份'); } };
+  $('otherFloor').onclick = () => { if (!busy) toast(yearColor(currentYear), '年份總表', '用左邊列表'); };
   $('lobbyBtn').onclick = () => goLobby();
   $('whoBtn').onclick = () => showGate();
-  $('hint').onclick = () => startFollow();
+  $('hint').onclick = () => { if (state === 'intro') beginPlay(); };
   $('rClose').onclick = () => closePdfViewer();
   $('exploreBtn')?.addEventListener('click', async () => {
     if (busy) return;
@@ -881,6 +981,20 @@ function bindUi() {
       toast('#86afd8', '自由行', 'WASD／箭咀／撳地板 · 行快咗');
     }
   });
+  $('yearTable')?.addEventListener('click', (e) => {
+    const pdfY = e.target.closest('[data-year-pdf]')?.dataset.yearPdf;
+    if (pdfY) { selectYear(pdfY, { openPdf: true }); return; }
+    const stY = e.target.closest('[data-year-stats]')?.dataset.yearStats;
+    if (stY) { selectYear(stY, { openStats: true }); return; }
+    const sel = e.target.closest('[data-select-year]')?.dataset.selectYear
+      || e.target.closest('[data-year]')?.dataset.year;
+    if (sel) selectYear(sel);
+  });
+  $('bookRail')?.addEventListener('click', (e) => {
+    const y = e.target.closest('[data-open-year]')?.dataset.openYear;
+    if (!y) return;
+    selectYear(y, { openPdf: true });
+  });
   $('sheet').addEventListener('click', (e) => {
     if (e.target.id === 'sheetClose') {
       closeSheet();
@@ -888,9 +1002,9 @@ function bindUi() {
       return;
     }
     const y = e.target.closest('[data-year]')?.dataset.year;
-    if (y) { closeSheet(); goFloor(y); return; }
+    if (y) { closeSheet(); selectYear(y); setState('shelf'); return; }
     const act = e.target.closest('[data-act]')?.dataset.act;
-    if (act === 'relobby') { closeSheet(); goLobby(); }
+    if (act === 'relobby') { closeSheet(); showGate(); }
     if (act === 'relogin') { closeSheet(); showGate(); }
   });
   $('desk').addEventListener('click', (e) => {

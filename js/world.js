@@ -191,9 +191,9 @@ function makeBoardTexture() {
   g.fillStyle = '#f7ecda'; g.fillRect(0, 0, 512, 640);
   g.fillStyle = '#2a2623'; g.fillRect(0, 0, 512, 72);
   g.fillStyle = '#fbf1df'; g.font = '700 36px Gaegu, cursive'; g.textAlign = 'center';
-  g.fillText('年份書架', 256, 48);
+  g.fillText('6A 錯題總表', 256, 48);
   g.fillStyle = '#8a705c'; g.font = '600 22px sans-serif';
-  g.fillText('撳我揀年份 · 跟住貓咪走', 256, 120);
+  g.fillText('左邊總表揀年份 · 右邊撳書開 PDF', 256, 120);
   const years = ['2012', '2013', '2014', '2018', '2023', '2024', '2025', '2026'];
   years.forEach((y, i) => {
     const yy = 150 + i * 56;

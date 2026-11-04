@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { SHELF_FRONT, rowY, rgeo, yearBayZ } from './world.js';
+import { SHELF_FRONT, rowY, rgeo, yearBayZ, FEAT_Z } from './world.js';
+export const RIGHT_SHELF_Z = FEAT_Z;
 
 /** Class-median representative grade per exam year (same year → same colour for all). */
 export const YEAR_GRADES = {
@@ -367,35 +368,42 @@ export function makeBookMesh(item, yearColor) {
 }
 
 /**
- * Place one book per year at that year's wall bay (game discovery along the hall).
- * `items` should already be capped to ≤1 book per year.
+ * Compact right-wall shelf: all year books in one bay (no hallway year crawl).
+ * `items` ≤1 book per year. Small year tags above books; 總表 holds 班中位 detail.
  */
 export function placeWallBooks(items, parent) {
   const meshes = [];
   const byYear = Object.fromEntries(
     [...items].map((it) => [String(it.year), it]),
   );
-  // Every YEAR_FLOORS bay gets a 班中位 plate (even if that student has no book).
-  for (const floor of YEAR_FLOORS) {
-    const year = String(floor.year);
-    const yearColor = colorForYear(year); // plate / 班中位 always median
-    const z0 = yearBayZ(year);
+  const years = YEAR_FLOORS.map((f) => String(f.year));
+  const n = years.length;
+  const spacing = 0.24;
+  const total = Math.max(0, (n - 1) * spacing);
+  const zBase = RIGHT_SHELF_Z - total / 2;
+
+  for (let i = 0; i < n; i++) {
+    const year = years[i];
+    const z0 = zBase + i * spacing;
+    const yearColor = colorForYear(year);
     const item = byYear[year];
-    let plateY = rowY(2) + 0.62; // empty bay: mid-shelf float
+    let plateY = rowY(2) + 0.55;
 
     if (item) {
       const m = makeBookMesh(item, colorForItem(item));
       const { h, d } = m.userData.dims;
-      const row = 1 + (hash(year) % 3);
+      const row = 2;
       const y = rowY(row) + 0.01;
       m.position.set(SHELF_FRONT - d / 2 - 0.01, y + h / 2, z0);
       m.userData.bayZ = z0;
+      m.userData.year = year;
       parent.add(m);
       meshes.push(m);
-      plateY = y + h + 0.32; // above the book so grade reads from the aisle
+      plateY = y + h + 0.28;
     }
 
     const plate = makePerfPlate(year, yearColor);
+    plate.scale.set(0.55, 0.55, 0.55);
     plate.rotation.y = -Math.PI / 2;
     plate.position.set(SHELF_FRONT - 0.02, plateY, z0);
     parent.add(plate);
@@ -403,7 +411,7 @@ export function placeWallBooks(items, parent) {
   return meshes;
 }
 
-/** @deprecated alias — one-year dump no longer used; routes to placeWallBooks. */
+/** @deprecated alias */
 export function placeYearBooks(items, yearColor, parent) {
   return placeWallBooks(items, parent);
 }
