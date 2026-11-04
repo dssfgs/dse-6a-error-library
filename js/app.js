@@ -5,7 +5,7 @@ import {
 } from './world.js';
 import {
   YEAR_FLOORS, FLOOR, placeWallBooks, pdfUrl, formatSize, bookId,
-  setGradeTable, colorForYear, gradeForYear, LEVEL_LABELS, LEVEL_FALLBACK,
+  setGradeTable, setBookColorMode, colorForYear, gradeForYear, LEVEL_LABELS, LEVEL_FALLBACK,
   LEVEL_COLORS, gradeOf, yearDetailOf, studentRow, yearResults,
 } from './books.js';
 import { createCat, DEFAULT_FUR } from './cat.js';
@@ -247,6 +247,7 @@ function syncFloorChrome() {
     : '暫時未有錯題簿';
 }
 function rebuildShelf() {
+  setBookColorMode(mode === 'student' ? 'student' : 'median');
   clearBooks();
   bookMeshes = placeWallBooks(wallItems(), bookGroup);
   syncFloorChrome();
@@ -315,7 +316,7 @@ async function travel(dest) {
     cat.face(-Math.PI / 2);
     await sleep(180);
     const floor = FLOOR[currentYear];
-    toast(yearColor(currentYear), floor.name, `到咗 · 班中位 ${yearGradeLabel(currentYear)} · 撳書脊`);
+    toast(yearColor(currentYear), floor.name, `到咗 · Enter／撳書開 PDF · 撳牌睇成績`);
     if (MOBILE) {
       // Phone: stay on the floor for tap-to-walk.
       freeNav = true;
@@ -373,8 +374,8 @@ function openFloorSheet() {
     </button>`;
   }).join('');
   const whoLine = mode === 'student'
-    ? `學號 <b>${studentId}</b>：牆上每年一本你嘅冊；書色＝該年班中位等級`
-    : '教師模式：牆上每年一本代表冊（優先學號 01）；書色＝該年班中位等級';
+    ? `學號 <b>${studentId}</b>：牆上每年一本你嘅冊；書色＝你嗰年等級（唔係班中位）`
+    : '教師模式：牆上每年一本代表冊（優先學號 01）；書色＝班中位；學生登入先跟個人等級';
   el.innerHTML = `
     <div class="grab"></div>
     <header>
@@ -466,7 +467,7 @@ function openYearResults(year, item = null) {
       <button type="button" class="x" id="deskClose">✕</button>
     </div>
     <h2>${y} · 班中位 ${gl}</h2>
-    <p class="d-meta">${res.n ? `班有 ${res.n} 人有呢年紀錄` : '未有班紀錄'} · 書色同牌＝班中位</p>
+    <p class="d-meta">${res.n ? `班有 ${res.n} 人有呢年紀錄` : '未有班紀錄'} · 牌＝班中位；書色＝學生個人等級（教師睇中位）</p>
     ${youBlock}
     <div class="d-median-big" style="--fc:${accent}">
       <span>班中位</span><b>${gl}</b>
@@ -638,7 +639,9 @@ function overCat(e) {
 }
 function showTip(e, item) {
   const tip = $('tip');
-  tip.innerHTML = `<b>學號 ${item.student_id} · ${item.year}</b><span>撳開 PDF · 班中位 ${yearGradeLabel(item.year)} · ${item.pages || '?'} 頁</span>`;
+  const mineG = gradeOf(item.student_id, item.year);
+  const mineLab = mineG ? (LEVEL_LABELS[mineG] || mineG) : '—';
+  tip.innerHTML = `<b>學號 ${item.student_id} · ${item.year}</b><span>撳開 PDF · 你嘅等級 ${mineLab} · 班中位 ${yearGradeLabel(item.year)}</span>`;
   tip.style.left = `${Math.min(e.clientX + 14, innerWidth - 220)}px`;
   tip.style.top = `${Math.min(e.clientY + 14, innerHeight - 70)}px`;
   tip.classList.add('show');

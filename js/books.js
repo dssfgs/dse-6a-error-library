@@ -115,8 +115,22 @@ export function yearResults(year) {
   return { year: y, median, roster, counts, n: roster.length };
 }
 
+/** 'student' = colour books by that item's student year-grade; 'median' = class median. */
+let bookColorMode = 'student';
+export function setBookColorMode(mode) {
+  bookColorMode = mode === 'median' ? 'median' : 'student';
+}
+export function getBookColorMode() {
+  return bookColorMode;
+}
+
 export function colorForItem(item) {
-  // Wall / plaque / cloth: class-median colour for that exam year.
+  // Student mode (default): whole-book colour = that student's Maths Analysis grade for the year.
+  // Teacher / median mode: class-median colour. Plates always use colorForYear separately.
+  if (bookColorMode !== 'median' && item?.student_id != null && item?.year != null) {
+    const g = gradeOf(item.student_id, item.year);
+    if (g) return colorForGrade(g);
+  }
   return colorForYear(item?.year);
 }
 
@@ -224,7 +238,7 @@ function spineTexture(item, dims, yearColor) {
   const sid = String(item.student_id).padStart(2, '0');
   g.font = `800 28px ${SANS}`; g.fillText(`學號 ${sid}`, W / 2, footY + 42);
   g.font = `700 20px ${SANS}`; g.fillText(item.class, W / 2, footY + 68);
-  const grade = gradeForYear(item.year);
+  const grade = gradeOf(item.student_id, item.year) || gradeForYear(item.year);
   const gradeTxt = grade ? `級 ${LEVEL_LABELS[grade] || grade}` : `${item.pages || '?'}頁`;
   g.font = `600 18px ${SANS}`; g.fillText(gradeTxt, W / 2, footY + 88);
 
@@ -300,7 +314,7 @@ function coverTexture(item, dims, yearColor) {
   rrect(g, 56, 56, W - 112, 78, 20); g.fill();
   g.fillStyle = '#fff'; g.font = `900 52px ${SANS}`; g.textAlign = 'center';
   g.fillText(String(item.year), W / 2, 108);
-  const grade = gradeForYear(item.year);
+  const grade = gradeOf(item.student_id, item.year) || gradeForYear(item.year);
   g.font = `700 26px ${SANS}`;
   g.fillText(grade ? `錯題簿 · ${LEVEL_LABELS[grade] || grade}` : '錯題簿', W / 2, 140);
   g.fillStyle = ink; g.font = `800 56px ${SANS}`;
@@ -364,13 +378,13 @@ export function placeWallBooks(items, parent) {
   // Every YEAR_FLOORS bay gets a 班中位 plate (even if that student has no book).
   for (const floor of YEAR_FLOORS) {
     const year = String(floor.year);
-    const yearColor = colorForYear(year);
+    const yearColor = colorForYear(year); // plate / 班中位 always median
     const z0 = yearBayZ(year);
     const item = byYear[year];
     let plateY = rowY(2) + 0.62; // empty bay: mid-shelf float
 
     if (item) {
-      const m = makeBookMesh(item, yearColor);
+      const m = makeBookMesh(item, colorForItem(item));
       const { h, d } = m.userData.dims;
       const row = 1 + (hash(year) % 3);
       const y = rowY(row) + 0.01;
