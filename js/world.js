@@ -187,27 +187,72 @@ function bay(z) {
 }
 
 function makeBoardTexture() {
-  const [c, g] = cv(512, 640);
-  g.fillStyle = '#f7ecda'; g.fillRect(0, 0, 512, 640);
-  g.fillStyle = '#2a2623'; g.fillRect(0, 0, 512, 72);
-  g.fillStyle = '#fbf1df'; g.font = '700 36px Gaegu, cursive'; g.textAlign = 'center';
-  g.fillText('6A 錯題總表', 256, 48);
-  g.fillStyle = '#8a705c'; g.font = '600 22px sans-serif';
-  g.fillText('左邊總表揀年份 · 右邊撳書開 PDF', 256, 120);
-  const years = ['2012', '2013', '2014', '2018', '2023', '2024', '2025', '2026'];
-  years.forEach((y, i) => {
-    const yy = 150 + i * 56;
-    g.fillStyle = i % 2 ? '#efe0c8' : '#f4e8d4';
-    g.fillRect(40, yy, 432, 50);
-    g.fillStyle = '#3a2a20'; g.font = '900 40px Gaegu, cursive'; g.textAlign = 'left';
-    g.fillText(y, 64, yy + 36);
-    g.fillStyle = '#a8784f'; g.font = '600 20px sans-serif'; g.textAlign = 'right';
-    g.fillText('DSE 錯題 →', 448, yy + 34);
-  });
+  // Placeholder; app paints live summary via paintSummaryBoard().
+  const [c, g] = cv(768, 1280);
+  g.fillStyle = '#f7ecda'; g.fillRect(0, 0, 768, 1280);
+  g.fillStyle = '#2a2623'; g.fillRect(0, 0, 768, 96);
+  g.fillStyle = '#fbf1df'; g.font = '700 48px Gaegu, cursive'; g.textAlign = 'center';
+  g.fillText('年份總表', 384, 64);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
   return t;
 }
+
+/** Paint left-wall 總表. rows: [{year, you, median, hasPdf, accent}] */
+export function paintSummaryBoard(title, subtitle, rows) {
+  if (!board.canvas || !board.tex) return;
+  const c = board.canvas;
+  const g = c.getContext('2d');
+  const W = c.width, H = c.height;
+  g.fillStyle = '#f7ecda'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#2a2623'; g.fillRect(0, 0, W, 110);
+  g.fillStyle = '#fbf1df'; g.font = '700 56px Gaegu, cursive'; g.textAlign = 'center';
+  g.fillText(title || '年份總表', W / 2, 72);
+  g.fillStyle = '#8a705c'; g.font = '600 28px sans-serif';
+  g.fillText(subtitle || '撳年份睇成績 · 右邊撳書開 PDF', W / 2, 150);
+
+  const top = 180;
+  const rowH = Math.min(118, (H - top - 40) / Math.max(1, rows.length));
+  const hit = [];
+  rows.forEach((r, i) => {
+    const y0 = top + i * rowH;
+    const y1 = y0 + rowH - 8;
+    g.fillStyle = i % 2 ? '#efe0c8' : '#f4e8d4';
+    roundRect(g, 36, y0, W - 72, rowH - 10, 18); g.fill();
+    // accent bar
+    g.fillStyle = r.accent || '#86afd8';
+    roundRect(g, 36, y0, 18, rowH - 10, 18); g.fill();
+    g.fillStyle = '#3a2a20'; g.font = '900 52px Gaegu, cursive'; g.textAlign = 'left';
+    g.fillText(String(r.year), 70, y0 + rowH * 0.48);
+    g.fillStyle = '#5a4638'; g.font = '700 26px sans-serif';
+    const line1 = r.you != null ? `你 ${r.you}` : '教師';
+    const line2 = `班中位 ${r.median || '—'} · ${r.hasPdf ? '有 PDF' : '無 PDF'}`;
+    g.fillText(line1, 220, y0 + rowH * 0.38);
+    g.fillStyle = '#a8784f'; g.font = '600 24px sans-serif';
+    g.fillText(line2, 220, y0 + rowH * 0.68);
+    g.fillStyle = r.accent || '#86afd8'; g.font = '800 28px sans-serif'; g.textAlign = 'right';
+    g.fillText(r.hasPdf ? '書 →' : '成績', W - 56, y0 + rowH * 0.52);
+    // UV: PlaneGeometry default uv y is bottom-up in three? Canvas texture maps with flipY true by default.
+    // Store pixel rows; app converts using uv.
+    hit.push({ year: String(r.year), y0, y1, hasPdf: !!r.hasPdf });
+  });
+  board.tex.needsUpdate = true;
+  board.rows = hit;
+  board.canvasH = H;
+}
+
+function roundRect(g, x, y, w, h, r) {
+  const rr = Math.min(r, w / 2, h / 2);
+  g.beginPath();
+  g.moveTo(x + rr, y);
+  g.arcTo(x + w, y, x + w, y + h, rr);
+  g.arcTo(x + w, y + h, x, y + h, rr);
+  g.arcTo(x, y + h, x, y, rr);
+  g.arcTo(x, y, x + w, y, rr);
+  g.closePath();
+}
+
 
 export function buildWorld() {
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0 + 2, Z1 - Z0 + 2), M.floor);
@@ -240,23 +285,28 @@ export function buildWorld() {
   scene.add(plaqueMesh);
   plaqueBrass = box(0.1, 0.025, 0.42, M.brass, SHELF_FRONT + 0.08, rowY(3) + 0.05, FEAT_Z + 0.55, scene, 0.008);
 
-  // Year directory board (lobby left)
+  // Left corridor wall: large year 總表 (clickable rows)
   board.tex = makeBoardTexture();
   board.canvas = board.tex.image;
+  board.rows = [];
+  board.canvasH = board.canvas.height;
   const g = new THREE.Group();
   const face = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.92, 1.15),
-    new THREE.MeshStandardMaterial({ map: board.tex, roughness: 0.7 })
+    new THREE.PlaneGeometry(1.55, 2.55),
+    new THREE.MeshStandardMaterial({ map: board.tex, roughness: 0.72 })
   );
-  face.position.set(0, 0, 0.04);
+  face.position.set(0, 0, 0.045);
+  face.name = 'summaryFace';
   g.add(face);
-  const frame = box(1.02, 1.25, 0.08, M.woodDark, 0, 0, 0, g, 0.02);
+  const frame = box(1.68, 2.7, 0.1, M.woodDark, 0, 0, 0, g, 0.02);
   frame.castShadow = true;
-  g.position.set(-1.35, 1.35, 1.35);
-  g.rotation.y = 0.55;
+  // Flat on left wall, facing into the hallway (+X)
+  g.position.set(X0 + 0.28, 1.85, -2.2);
+  g.rotation.y = Math.PI / 2;
   g.userData.board = true;
   scene.add(g);
   board.group = g;
+  board.face = face;
 
   // Stairs arch hint at far end
   box(2.4, 3.2, 0.2, M.woodDark, 0, 1.6, Z0 + 0.6, scene, 0.02);
@@ -286,7 +336,7 @@ export function buildWorld() {
   sg.fillStyle = '#fbf1df'; sg.font = '700 42px Gaegu, cursive'; sg.textAlign = 'center';
   sg.fillText('6A 錯題書架', 256, 100);
   sg.font = '600 24px sans-serif'; sg.fillStyle = '#e2cdb2';
-  sg.fillText('跟着貓咪 · 按年份翻錯題', 256, 160);
+  sg.fillText('左邊總表 · 右邊撳書', 256, 160);
   const signTex = new THREE.CanvasTexture(sc);
   signTex.colorSpace = THREE.SRGBColorSpace;
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), new THREE.MeshBasicMaterial({ map: signTex }));

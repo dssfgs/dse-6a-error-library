@@ -368,37 +368,28 @@ export function makeBookMesh(item, yearColor) {
 }
 
 /**
- * Compact right-wall shelf: all year books in one bay (no hallway year crawl).
- * `items` ≤1 book per year. Small year tags above books; 總表 holds 班中位 detail.
+ * Right corridor wall: one coloured book per year at that year's bay.
+ * Left wall 總表 (world.board) lists years; tap book → PDF.
  */
 export function placeWallBooks(items, parent) {
   const meshes = [];
   const byYear = Object.fromEntries(
     [...items].map((it) => [String(it.year), it]),
   );
-  const years = YEAR_FLOORS.map((f) => String(f.year));
-  const n = years.length;
-  const spacing = 0.24;
-  const total = Math.max(0, (n - 1) * spacing);
-  const zBase = RIGHT_SHELF_Z - total / 2;
-
-  for (let i = 0; i < n; i++) {
-    const year = years[i];
-    const z0 = zBase + i * spacing;
-    const yearColor = colorForYear(year);
+  for (const floor of YEAR_FLOORS) {
+    const year = String(floor.year);
     const item = byYear[year];
-    // No floating 班中位 plates — left 總表 owns year summary; HTML cards own taps.
-    if (item) {
-      const m = makeBookMesh(item, colorForItem(item));
-      const { h, d } = m.userData.dims;
-      const row = 2;
-      const y = rowY(row) + 0.01;
-      m.position.set(SHELF_FRONT - d / 2 - 0.01, y + h / 2, z0);
-      m.userData.bayZ = z0;
-      m.userData.year = year;
-      parent.add(m);
-      meshes.push(m);
-    }
+    if (!item) continue;
+    const z0 = yearBayZ(year);
+    const m = makeBookMesh(item, colorForItem(item));
+    const { h, d } = m.userData.dims;
+    const row = 1 + (hash(year) % 3);
+    const y = rowY(row) + 0.01;
+    m.position.set(SHELF_FRONT - d / 2 - 0.01, y + h / 2, z0);
+    m.userData.bayZ = z0;
+    m.userData.year = year;
+    parent.add(m);
+    meshes.push(m);
   }
   return meshes;
 }
