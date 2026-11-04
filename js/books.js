@@ -191,40 +191,52 @@ function spineTexture(item, dims, yearColor) {
   return tex(c);
 }
 
-function yearTagTexture(year, yearColor) {
-  const W = 512, H = 192;
+/** Floating bay plaque: year + big class-median grade (readable a few metres away). */
+function perfPlateTexture(year, yearColor) {
+  const W = 640, H = 360;
   const [c, g] = canvas(W, H);
   g.clearRect(0, 0, W, H);
-  g.fillStyle = 'rgba(47, 38, 32, 0.82)';
-  rrect(g, 16, 16, W - 32, H - 32, 28); g.fill();
+  g.fillStyle = 'rgba(32, 26, 22, 0.88)';
+  rrect(g, 12, 12, W - 24, H - 24, 36); g.fill();
   g.fillStyle = yearColor;
-  rrect(g, 16, 16, 28, H - 32, 14); g.fill();
+  rrect(g, 12, 12, W - 24, 54, [36, 36, 0, 0]); g.fill();
   g.fillStyle = '#fffaf0';
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.font = `900 118px ${SANS}`;
-  g.fillText(String(year), W / 2 + 8, H / 2 + 4);
+  g.font = `800 36px ${SANS}`;
+  g.fillText(String(year), W / 2, 40);
+
   const grade = gradeForYear(year);
-  if (grade) {
-    g.font = `800 36px ${SANS}`;
-    g.fillStyle = yearColor;
-    g.fillText(LEVEL_LABELS[grade] || grade, W - 70, H / 2 + 4);
-  }
+  const gradeTxt = grade ? (LEVEL_LABELS[grade] || grade) : '—';
+  g.fillStyle = yearColor;
+  g.font = `900 ${gradeTxt.length >= 3 ? 130 : 168}px ${SANS}`;
+  g.fillText(gradeTxt, W / 2, H * 0.52);
+
+  g.fillStyle = '#fffaf0';
+  g.font = `700 42px ${SANS}`;
+  g.fillText(grade ? '班中位' : '班中位未定', W / 2, H - 58);
+
   const t = tex(c);
   t.premultiplyAlpha = true;
   return t;
 }
 
-function makeYearTag(year, yearColor) {
-  const map = yearTagTexture(year, yearColor);
+function makePerfPlate(year, yearColor) {
+  const map = perfPlateTexture(year, yearColor);
   const mat = new THREE.MeshBasicMaterial({
     map,
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide,
   });
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.21), mat);
-  mesh.userData.yearTag = true;
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.78, 0.44), mat);
+  mesh.userData.perfPlate = true;
+  mesh.userData.year = String(year);
   return mesh;
+}
+
+/** @deprecated kept for callers; now a performance plate. */
+function makeYearTag(year, yearColor) {
+  return makePerfPlate(year, yearColor);
 }
 
 function coverTexture(item, dims, yearColor) {
@@ -300,23 +312,33 @@ export function makeBookMesh(item, yearColor) {
  */
 export function placeWallBooks(items, parent) {
   const meshes = [];
-  const list = [...items].sort((a, b) => String(a.year).localeCompare(String(b.year)));
-  for (const item of list) {
-    const yearColor = colorForItem(item);
-    const m = makeBookMesh(item, yearColor);
-    const { t, h, d } = m.userData.dims;
-    const z0 = yearBayZ(item.year);
-    const row = 1 + (hash(String(item.year)) % 3);
-    const y = rowY(row) + 0.01;
-    m.position.set(SHELF_FRONT - d / 2 - 0.01, y + h / 2, z0);
-    m.userData.bayZ = z0;
-    parent.add(m);
-    meshes.push(m);
+  const byYear = Object.fromEntries(
+    [...items].map((it) => [String(it.year), it]),
+  );
+  // Every YEAR_FLOORS bay gets a 班中位 plate (even if that student has no book).
+  for (const floor of YEAR_FLOORS) {
+    const year = String(floor.year);
+    const yearColor = colorForYear(year);
+    const z0 = yearBayZ(year);
+    const item = byYear[year];
+    let plateY = rowY(2) + 0.62; // empty bay: mid-shelf float
 
-    const tag = makeYearTag(item.year, yearColor);
-    tag.rotation.y = -Math.PI / 2;
-    tag.position.set(SHELF_FRONT - 0.02, y + h + 0.18, z0);
-    parent.add(tag);
+    if (item) {
+      const m = makeBookMesh(item, yearColor);
+      const { h, d } = m.userData.dims;
+      const row = 1 + (hash(year) % 3);
+      const y = rowY(row) + 0.01;
+      m.position.set(SHELF_FRONT - d / 2 - 0.01, y + h / 2, z0);
+      m.userData.bayZ = z0;
+      parent.add(m);
+      meshes.push(m);
+      plateY = y + h + 0.32; // above the book so grade reads from the aisle
+    }
+
+    const plate = makePerfPlate(year, yearColor);
+    plate.rotation.y = -Math.PI / 2;
+    plate.position.set(SHELF_FRONT - 0.02, plateY, z0);
+    parent.add(plate);
   }
   return meshes;
 }
