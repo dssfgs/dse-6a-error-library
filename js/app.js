@@ -62,6 +62,7 @@ function buildFurSwatches() {
 
 const $ = (id) => document.getElementById(id);
 const V3 = (...a) => new THREE.Vector3(...a);
+const lerpAngle = (a, b, k) => a + ((((b - a) % (Math.PI * 2)) + Math.PI * 3) % (Math.PI * 2) - Math.PI) * k;
 const canvasEl = renderer.domElement;
 
 /* Spots */
@@ -96,6 +97,12 @@ const camLook = new THREE.Vector3();
 const lookNow = new THREE.Vector3();
 const keys = new Set();
 let freeNav = false; // after hop-down from shelf seat
+const moveVel = new THREE.Vector3(); // horizontal free-roam velocity (m/s)
+let camYawSmooth = 0.1; // camera follow yaw (angle-lerped, free-nav only)
+const MOVE_MAX = 3.05;
+const MOVE_ACCEL = 14;   // ~0.2s toward full speed
+const MOVE_DECEL = 12;   // ~0.22s to stop
+const MOVE_STOP_EPS = 0.05;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, STILL ? 0 : ms));
 function fade(on, ms = 500) {
@@ -174,25 +181,38 @@ const holdCam = () => {};
 const introCam = () => followPose(ENTRANCE, 0.1);
 const hallCam = (z) => () => { camPos.set(HALL_X + 0.1, 1.45, z + 2.6); camLook.set(0, 0.55, z - 4); };
 
+function isFreeRoamCam() {
+  return freeNav && (state === 'intro' || state === 'roam' || state === 'shelf' || state === 'book');
+}
 function targetPose() {
   if (state === 'gate') { followPose(ENTRANCE, 0.1); return; }
   if (state === 'sign') { signPose(); return; }
-  if (state === 'intro') { followPose(freeNav ? cat.pos : ENTRANCE, freeNav ? cat.yaw : 0.1); return; }
+  if (state === 'intro') { followPose(freeNav ? cat.pos : ENTRANCE, freeNav ? camYawSmooth : 0.1); return; }
   if (state === 'travel' && travelCam) { travelCam(); return; }
   if (state === 'shelf' || state === 'book') {
-    if (freeNav) followPose(cat.pos, cat.yaw);
+    if (freeNav) followPose(cat.pos, camYawSmooth);
     else shelfPose();
     return;
   }
-  if (state === 'roam') { followPose(cat.pos, cat.yaw); return; }
+  if (state === 'roam') { followPose(cat.pos, camYawSmooth); return; }
   followPose();
 }
 function updateCamera(dt) {
   camera.fov = camera.aspect < 0.9 ? 62 : 50;
   camera.updateProjectionMatrix();
   if (state === 'book' && !freeNav) return;
+  // Smooth the yaw used for followPose so quick cat turns don't whip the camera.
+  if (cat) {
+    if (snapNext || STILL) camYawSmooth = cat.yaw;
+    else if (isFreeRoamCam()) {
+      const yawK = 1 - Math.exp(-dt * 3.0);
+      camYawSmooth = lerpAngle(camYawSmooth, cat.yaw, yawK);
+    }
+  }
   targetPose();
-  const k = snapNext || STILL ? 1 : 1 - Math.exp(-dt * (state === 'shelf' && !freeNav ? 3 : 4.5));
+  const roam = isFreeRoamCam();
+  const rate = state === 'shelf' && !freeNav ? 3 : roam ? 3.4 : 4.5;
+  const k = snapNext || STILL ? 1 : 1 - Math.exp(-dt * rate);
   camera.position.lerp(camPos, k);
   lookNow.lerp(camLook, k);
   if (snapNext || STILL) { camera.position.copy(camPos); lookNow.copy(camLook); snapNext = false; }
@@ -781,49 +801,75 @@ function canFreeMove() {
 }
 async function ensureOnFloor() {
   if (cat.pos.y > 0.15 || cat.sit > 0.4) {
+    clearMoveVel();
     cat.sitTarget = 0;
     await cat.hop(shelfStop().clone(), 480);
     freeNav = true;
     if (state === 'shelf' || state === 'book') setState('roam');
   }
 }
+function clearMoveVel() {
+  moveVel.set(0, 0, 0);
+}
 function applyFreeMove(dt) {
-  if (!canFreeMove() || cat.path || cat.hopState) return;
+  if (!canFreeMove() || cat.path || cat.hopState) {
+    clearMoveVel();
+    return;
+  }
   let dx = 0, dz = 0;
   if (keys.has('KeyW') || keys.has('ArrowUp')) dz -= 1;
   if (keys.has('KeyS') || keys.has('ArrowDown')) dz += 1;
   if (keys.has('KeyA') || keys.has('ArrowLeft')) dx -= 1;
   if (keys.has('KeyD') || keys.has('ArrowRight')) dx += 1;
-  if (Math.abs(dx) < 0.05 && Math.abs(dz) < 0.05) {
+  const hasInput = Math.abs(dx) >= 0.05 || Math.abs(dz) >= 0.05;
+
+  const desired = V3(0, 0, 0);
+  if (hasInput) {
+    const fwd = new THREE.Vector3();
+    camera.getWorldDirection(fwd);
+    fwd.y = 0;
+    if (fwd.lengthSq() > 1e-8) fwd.normalize();
+    else fwd.set(0, 0, -1);
+    const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0));
+    if (right.lengthSq() > 1e-8) right.normalize();
+    else right.set(1, 0, 0);
+    desired.copy(fwd).multiplyScalar(-dz).addScaledVector(right, dx);
+    if (desired.lengthSq() > 1e-6) desired.normalize().multiplyScalar(MOVE_MAX);
+    else desired.set(0, 0, 0);
+  }
+
+  const resp = hasInput ? MOVE_ACCEL : MOVE_DECEL;
+  const k = 1 - Math.exp(-dt * resp);
+  moveVel.x += (desired.x - moveVel.x) * k;
+  moveVel.z += (desired.z - moveVel.z) * k;
+  moveVel.y = 0;
+
+  const speed = Math.hypot(moveVel.x, moveVel.z);
+  if (speed < MOVE_STOP_EPS) {
+    clearMoveVel();
     if (cat.moving && !cat.path) cat.moving = false;
     return;
   }
-  // camera-relative
-  const yaw = cat.yaw;
-  // move in world XZ relative to camera look on XZ
-  const camYaw = Math.atan2(
-    camera.position.x - (lookNow.x || cat.pos.x),
-    camera.position.z - (lookNow.z || cat.pos.z)
-  );
-  // Actually use camera forward projected
-  const fwd = new THREE.Vector3();
-  camera.getWorldDirection(fwd);
-  fwd.y = 0; fwd.normalize();
-  const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0)).normalize();
-  const dir = fwd.multiplyScalar(-dz).add(right.multiplyScalar(dx));
-  if (dir.lengthSq() < 1e-6) return;
-  dir.normalize();
-  const speed = 2.95;
-  const next = cat.pos.clone().addScaledVector(dir, speed * dt);
+
+  const prevX = cat.pos.x;
+  const prevZ = cat.pos.z;
+  const next = cat.pos.clone().addScaledVector(moveVel, dt);
   clampPos(next);
+  // Kill velocity into walls so stops don't feel sticky/jittery
+  if (Math.abs(next.x - (prevX + moveVel.x * dt)) > 1e-5) moveVel.x = 0;
+  if (Math.abs(next.z - (prevZ + moveVel.z * dt)) > 1e-5) moveVel.z = 0;
   cat.root.position.copy(next);
-  cat.yawTarget = Math.atan2(-dir.x, -dir.z);
+
+  // Face actual velocity; avoid yaw snaps when nearly stopped (handled by STOP_EPS above)
+  cat.yawTarget = Math.atan2(-moveVel.x, -moveVel.z);
   cat.moving = true;
   cat.phase += (speed * dt) / 0.16;
   freeNav = true;
 }
 async function walkToPoint(pt) {
   if (busy || !canFreeMove()) return;
+  clearMoveVel();
+  keys.clear();
   if (cat.pos.y > 0.15) await ensureOnFloor();
   const target = clampPos(pt.clone().setY(0));
   const mid = cat.pos.clone().lerp(target, 0.5);
