@@ -827,13 +827,13 @@ function pickBoardYear(e) {
   const rows = board.rows || [];
   // Prefer the row whose painted box contains the point. If the click lands
   // in the small gap between rows, snap only to the nearer box (within 6px).
-  let hit = null, hitDist = Infinity;
+  let nearRow = null, nearDist = Infinity;
   for (const r of rows) {
     if (py >= r.y0 && py <= r.y1) return { year: r.year, hasPdf: r.hasPdf };
     const d = py < r.y0 ? r.y0 - py : py - r.y1;
-    if (d < hitDist) { hitDist = d; hit = r; }
+    if (d < nearDist) { nearDist = d; nearRow = r; }
   }
-  if (hit && hitDist <= 6) return { year: hit.year, hasPdf: hit.hasPdf };
+  if (nearRow && nearDist <= 6) return { year: nearRow.year, hasPdf: nearRow.hasPdf };
   return { year: null, hasPdf: false };
 }
 function overCat(e) {
