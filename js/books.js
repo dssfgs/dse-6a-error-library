@@ -88,7 +88,28 @@ export function yearDetailOf(studentId, year) {
   return row.yearDetails?.[y] || null;
 }
 
-/** Class roster + median + counts for one exam year. */
+/** Comparable 0–1 score from a yearDetails string, or null if unknown.
+ *  Prefers combined marks like (168/179); falls back to PII% / PI% estimates.
+ */
+export function detailScore(detail) {
+  if (detail == null || detail === '') return null;
+  const s = String(detail);
+  const frac = s.match(/(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
+  if (frac) {
+    const den = Number(frac[2]);
+    if (den > 0) return Number(frac[1]) / den;
+  }
+  const pii = s.match(/PII\s*(\d+(?:\.\d+)?)%/i);
+  if (pii) return Number(pii[1]) / 100;
+  const pi = s.match(/PI\s*(\d+(?:\.\d+)?)%/i);
+  if (pi) return Number(pi[1]) / 100;
+  return null;
+}
+
+/** Class roster + median + counts for one exam year.
+ *  Order: higher grade first, then higher marks within the same grade
+ *  (so a 5** with 177 ranks above a 5** with 168). ID is only a last tie-break.
+ */
 export function yearResults(year) {
   const y = String(year);
   const median = gradeForYear(y);
@@ -100,11 +121,14 @@ export function yearResults(year) {
       if (g == null || g === '') continue;
       const grade = String(g);
       counts[grade] = (counts[grade] || 0) + 1;
+      const id = String(sid).padStart(2, '0');
+      const detail = row.yearDetails?.[y] || null;
       roster.push({
-        id: sid,
-        name: row.name || `#${sid}`,
+        id,
+        name: row.name || `#${id}`,
         grade,
-        detail: row.yearDetails?.[y] || null,
+        detail,
+        score: detailScore(detail),
         pred: row.pred || null,
         mean: row.mean ?? null,
       });
@@ -114,6 +138,10 @@ export function yearResults(year) {
     const ra = GRADE_RANK[a.grade] || 0;
     const rb = GRADE_RANK[b.grade] || 0;
     if (rb !== ra) return rb - ra;
+    const sa = a.score, sb = b.score;
+    if (sa != null && sb != null && sa !== sb) return sb - sa;
+    if (sa != null && sb == null) return -1;
+    if (sa == null && sb != null) return 1;
     return a.id.localeCompare(b.id);
   });
   return { year: y, median, roster, counts, n: roster.length };

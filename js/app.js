@@ -495,7 +495,7 @@ function gradeChip(g) {
   return `<span class="chip" style="--fc:${fc}">${label}</span>`;
 }
 
-/** 1-based class rank for a student in that year (by grade order); null if absent. */
+/** 1-based class rank for a student in that year (grade, then marks); null if absent. */
 function rankOfStudent(year, sid) {
   if (sid == null) return null;
   const id = String(sid).padStart(2, '0');
@@ -631,7 +631,8 @@ function pickBook(e) {
   const hits = raycaster.intersectObjects(bookMeshes, false);
   return hits[0]?.object || null;
 }
-const BOOK_ASSIST_PX = 56;
+const BOOK_ASSIST_PX = 28;
+const BOOK_ASSIST_MARGIN = 14;
 const _bookNdc = new THREE.Vector3();
 
 function bookRootFrom(obj) {
@@ -655,16 +656,20 @@ function bookScreenDist(mesh, e) {
 
 function nearestBookByPointer(e, maxPx = BOOK_ASSIST_PX) {
   if (!bookMeshes.length) return null;
-  let best = null, bestD = maxPx;
+  const scored = [];
   for (const m of bookMeshes) {
     if (!m.userData?.item) continue;
     const d = bookScreenDist(m, e);
-    if (d <= bestD) { bestD = d; best = m; }
+    if (d <= maxPx) scored.push([d, m]);
   }
-  return best;
+  if (!scored.length) return null;
+  scored.sort((a, b) => a[0] - b[0]);
+  // If two books are similarly close on screen, do not guess — wait for a direct ray hit.
+  if (scored.length > 1 && scored[1][0] - scored[0][0] < BOOK_ASSIST_MARGIN) return null;
+  return scored[0][1];
 }
 
-/** Book or 班中位 plate on the wall. Near-miss clicks snap to the closest book within 56px. */
+/** Book or 班中位 plate on the wall. Near-miss clicks snap only if one book is clearly closest. */
 function pickWall(e) {
   aim(e);
   const targets = (bookMeshes && bookMeshes.length)
@@ -713,12 +718,13 @@ function nearestOpenableBook() {
     const dx = m.position.x - cat.pos.x;
     const dz = m.position.z - cat.pos.z;
     const dist = Math.hypot(dx, dz);
-    if (dist > 4.2) continue;
-    if (Math.abs(dz) > 2.0) continue;
-    if (cat.pos.x < SHELF_FRONT - 4.2) continue;
+    // Bays are ~1.85 apart: stay inside one bay, with a dead zone at the mid-point.
+    if (dist > 2.4) continue;
+    if (Math.abs(dz) > 0.85) continue;
+    if (cat.pos.x < SHELF_FRONT - 2.6) continue;
     const dot = (fwdX * dx + fwdZ * dz) / (dist || 1e-6);
-    if (dot < -0.2 && Math.abs(dz) > 0.6) continue;
-    const score = dist - (dot > 0.2 ? 0.35 : 0) - (Math.abs(dz) < 0.55 ? 0.25 : 0);
+    if (dot < -0.15 && Math.abs(dz) > 0.45) continue;
+    const score = dist - (dot > 0.2 ? 0.35 : 0) - (Math.abs(dz) < 0.4 ? 0.25 : 0);
     if (score < bestScore) { bestScore = score; best = item; }
   }
   return best;
@@ -819,9 +825,15 @@ function pickBoardYear(e) {
     }
   }
   const rows = board.rows || [];
+  // Prefer the row whose painted box contains the point. If the click lands
+  // in the small gap between rows, snap only to the nearer box (within 6px).
+  let hit = null, hitDist = Infinity;
   for (const r of rows) {
     if (py >= r.y0 && py <= r.y1) return { year: r.year, hasPdf: r.hasPdf };
+    const d = py < r.y0 ? r.y0 - py : py - r.y1;
+    if (d < hitDist) { hitDist = d; hit = r; }
   }
+  if (hit && hitDist <= 6) return { year: hit.year, hasPdf: hit.hasPdf };
   return { year: null, hasPdf: false };
 }
 function overCat(e) {
