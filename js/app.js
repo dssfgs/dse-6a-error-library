@@ -202,20 +202,23 @@ function updateCamera(dt) {
   camera.fov = camera.aspect < 0.9 ? 62 : 50;
   camera.updateProjectionMatrix();
   if (state === 'book' && !freeNav) return;
-  // Smooth the yaw used for followPose so quick cat turns don't whip the camera.
+  // Keep view yaw nearly locked to the cat. Trailing the turn (old rate ~3)
+  // made the world lag behind the body and felt dizzy.
   if (cat) {
     if (snapNext || STILL) camYawSmooth = cat.yaw;
     else if (isFreeRoamCam()) {
-      const yawK = 1 - Math.exp(-dt * 3.0);
+      const yawK = 1 - Math.exp(-dt * 18);
       camYawSmooth = lerpAngle(camYawSmooth, cat.yaw, yawK);
     }
   }
   targetPose();
   const roam = isFreeRoamCam();
-  const rate = state === 'shelf' && !freeNav ? 3 : roam ? 3.4 : 4.5;
-  const k = snapNext || STILL ? 1 : 1 - Math.exp(-dt * rate);
-  camera.position.lerp(camPos, k);
-  lookNow.lerp(camLook, k);
+  const posRate = state === 'shelf' && !freeNav ? 3 : roam ? 10 : 4.5;
+  const lookRate = roam ? 20 : posRate;
+  const posK = snapNext || STILL ? 1 : 1 - Math.exp(-dt * posRate);
+  const lookK = snapNext || STILL ? 1 : 1 - Math.exp(-dt * lookRate);
+  camera.position.lerp(camPos, posK);
+  lookNow.lerp(camLook, lookK);
   if (snapNext || STILL) { camera.position.copy(camPos); lookNow.copy(camLook); snapNext = false; }
   camera.lookAt(lookNow);
 }
