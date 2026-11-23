@@ -3,6 +3,7 @@ import {
   QS, STILL, MOBILE, renderer, scene, camera, buildWorld, resize, updateWorld, dressFloor,
   SHELF_FRONT, rowY, X0, X1, Z0, Z1, floorMesh, board, yearBayZ, syncYearBayZ,
   paintSummaryBoard, scrollSummaryBoard, setSummaryBoardLabels,
+  compareYearKeys, yearDisplayName, yearBoardLabel, yearFloorTitle,
 } from './world.js';
 import {
   YEAR_FLOORS, FLOOR, placeWallBooks, pdfUrl, formatSize, bookId,
@@ -245,9 +246,16 @@ function wallItems() {
   return out;
 }
 function clearBooks() {
+  clearBookHover();
   while (bookGroup.children.length) {
     const m = bookGroup.children.pop();
-    m.geometry?.dispose?.();
+    for (const child of [...(m.children || [])]) {
+      if (child.userData?.hitProxy) {
+        child.geometry?.dispose?.();
+        child.material?.dispose?.();
+        m.remove(child);
+      }
+    }
     if (Array.isArray(m.material)) m.material.forEach((x) => { x.map?.dispose?.(); x.dispose?.(); });
     else m.material?.dispose?.();
   }
@@ -262,7 +270,7 @@ function yearGradeLabel(year = currentYear) {
 }
 function floorOf(year = currentYear) {
   const y = String(year);
-  return FLOOR[y] || { key: y, year: y, name: y, title: `DSE ${y}`, color: yearColor(y) };
+  return FLOOR[y] || { key: y, year: y, name: yearDisplayName(y) === y ? y : yearDisplayName(y), title: yearFloorTitle(y), color: yearColor(y) };
 }
 function syncFloorChrome() {
   const floor = floorOf(currentYear);
@@ -274,7 +282,7 @@ function syncFloorChrome() {
   const who = mode === 'student' ? `學號 ${studentId}` : '教師代表冊';
   const nWall = bookMeshes.length;
   $('shelfHint').textContent = nWall
-    ? `${who} · ${floor.year} · 左牆排名 · 右牆 ${nWall} 本錯題簿`
+    ? `${who} · ${yearDisplayName(floor.year)} · 左牆排名 · 右牆 ${nWall} 本錯題簿`
     : '暫時未有錯題簿 · 左牆仍可睇排名';
 }
 function itemForYear(year) {
@@ -301,6 +309,7 @@ function refreshSummaryBoard({ keepScroll = false } = {}) {
       : colorForYear(y);
     return {
       year: y,
+      label: yearBoardLabel(y),
       you: mineLab,
       rank,
       median: medLab,
@@ -330,7 +339,7 @@ function selectYear(year, { openPdf = false, openStats = false, travelTo = false
     return Promise.resolve();
   }
   if (travelTo) return goFloor(y);
-  toast(yearColor(y), `${y}`, '左牆＝排名 · 右牆書／「去錯題簿」開簿');
+  toast(yearColor(y), yearDisplayName(y), '左牆＝排名 · 右牆書／「去錯題簿」開簿');
   return Promise.resolve();
 }
 
@@ -405,7 +414,7 @@ async function travel(dest) {
     cat.face(-Math.PI / 2);
     await sleep(180);
     const floor = floorOf(currentYear);
-    toast(yearColor(currentYear), floor.name, `到咗 · 左牆睇排名 · 右牆書＝錯題簿`);
+    toast(yearColor(currentYear), yearDisplayName(currentYear), `到咗 · 左牆睇排名 · 右牆書＝錯題簿`);
     if (MOBILE) {
       // Phone: stay on the floor for tap-to-walk.
       freeNav = true;
@@ -568,11 +577,11 @@ function openYearResults(year, item = null) {
 
   desk.innerHTML = `
     <div class="d-top">
-      <p class="d-eyebrow"><span class="chip" style="--fc:${accent}">${y}</span>
+      <p class="d-eyebrow"><span class="chip" style="--fc:${accent}">${yearDisplayName(y)}</span>
         <span class="chip" style="--fc:${accent}">班中位 ${gl}</span> 年份排名</p>
       <button type="button" class="x" id="deskClose">✕</button>
     </div>
-    <h2>${y} · 班排名</h2>
+    <h2>${yearDisplayName(y)} · 班排名</h2>
     <p class="d-meta">${res.n ? `共 ${res.n} 人上榜` : '未有班紀錄'} · 左牆總表只顯示排名；錯題簿請用下方按鈕或右牆書</p>
     ${youBlock}
     <div class="d-median-big" style="--fc:${accent}">
@@ -596,7 +605,7 @@ function closeDesk() {
 }
 function openPdfViewer(item) {
   const url = pdfUrl(item);
-  $('rSub').textContent = `${item.class} · ${item.year}`;
+  $('rSub').textContent = `${item.class} · ${yearDisplayName(item.year)}`;
   $('rTitle').textContent = `學號 ${item.student_id} 錯題簿`;
   $('rOut').href = url;
   $('rWait').hidden = false;
@@ -622,25 +631,64 @@ function pickBook(e) {
   const hits = raycaster.intersectObjects(bookMeshes, false);
   return hits[0]?.object || null;
 }
-/** Book or 班中位 plate on the wall. */
+const BOOK_ASSIST_PX = 56;
+const _bookNdc = new THREE.Vector3();
+
+function bookRootFrom(obj) {
+  let o = obj;
+  while (o) {
+    if (o.userData?.item) return o;
+    o = o.parent;
+  }
+  return null;
+}
+
+function bookScreenDist(mesh, e) {
+  const rect = canvasEl.getBoundingClientRect();
+  mesh.getWorldPosition(_bookNdc);
+  _bookNdc.project(camera);
+  if (_bookNdc.z > 1) return Infinity;
+  const sx = (_bookNdc.x * 0.5 + 0.5) * rect.width + rect.left;
+  const sy = (-_bookNdc.y * 0.5 + 0.5) * rect.height + rect.top;
+  return Math.hypot(e.clientX - sx, e.clientY - sy);
+}
+
+function nearestBookByPointer(e, maxPx = BOOK_ASSIST_PX) {
+  if (!bookMeshes.length) return null;
+  let best = null, bestD = maxPx;
+  for (const m of bookMeshes) {
+    if (!m.userData?.item) continue;
+    const d = bookScreenDist(m, e);
+    if (d <= bestD) { bestD = d; best = m; }
+  }
+  return best;
+}
+
+/** Book or 班中位 plate on the wall. Near-miss clicks snap to the closest book within 56px. */
 function pickWall(e) {
   aim(e);
-  // Prefer live bookMeshes (right-wall books); fall back to group children.
   const targets = (bookMeshes && bookMeshes.length)
     ? bookMeshes
     : bookGroup.children.filter((o) => o.userData?.item || o.userData?.perfPlate);
   const hits = raycaster.intersectObjects(targets, true);
-  const obj = hits[0]?.object;
-  if (!obj) return null;
-  const root = obj.userData?.item ? obj : (obj.parent?.userData?.item ? obj.parent : obj);
-  if (root.userData?.item) {
-    return { kind: 'book', item: root.userData.item, year: String(root.userData.item.year), mesh: root };
+  for (const h of hits) {
+    const root = bookRootFrom(h.object);
+    if (root?.userData?.item) {
+      return { kind: 'book', item: root.userData.item, year: String(root.userData.item.year), mesh: root };
+    }
   }
-  if (obj.userData?.perfPlate || root.userData?.perfPlate) {
-    const plate = obj.userData?.perfPlate ? obj : root;
-    const year = String(plate.userData.year);
-    const book = bookMeshes.find((m) => String(m.userData?.item?.year) === year);
-    return { kind: 'plate', item: book?.userData?.item || null, year, mesh: plate };
+  const near = nearestBookByPointer(e);
+  if (near) {
+    return { kind: 'book', item: near.userData.item, year: String(near.userData.item.year), mesh: near };
+  }
+  for (const h of hits) {
+    const obj = h.object;
+    const plate = obj.userData?.perfPlate ? obj : (obj.parent?.userData?.perfPlate ? obj.parent : null);
+    if (plate) {
+      const year = String(plate.userData.year);
+      const book = bookMeshes.find((m) => String(m.userData?.item?.year) === year);
+      return { kind: 'plate', item: book?.userData?.item || null, year, mesh: plate };
+    }
   }
   return null;
 }
@@ -665,9 +713,9 @@ function nearestOpenableBook() {
     const dx = m.position.x - cat.pos.x;
     const dz = m.position.z - cat.pos.z;
     const dist = Math.hypot(dx, dz);
-    if (dist > 2.8) continue;
-    if (Math.abs(dz) > 1.35) continue;
-    if (cat.pos.x < SHELF_FRONT - 3.2) continue;
+    if (dist > 4.2) continue;
+    if (Math.abs(dz) > 2.0) continue;
+    if (cat.pos.x < SHELF_FRONT - 4.2) continue;
     const dot = (fwdX * dx + fwdZ * dz) / (dist || 1e-6);
     if (dot < -0.2 && Math.abs(dz) > 0.6) continue;
     const score = dist - (dot > 0.2 ? 0.35 : 0) - (Math.abs(dz) < 0.55 ? 0.25 : 0);
@@ -687,7 +735,9 @@ function openNearestBookPdf() {
   closeDesk();
   closeSheet();
   openPdfViewer(item);
-  toast(yearColor(item.year), `${item.year} 錯題簿`, `學號 ${item.student_id} · Enter／撳書開 PDF`);
+  const yOpen = yearDisplayName(item.year);
+  const openLabel = String(item.year) === '2026S' ? yOpen : `${yOpen} 錯題簿`;
+  toast(yearColor(item.year), openLabel, `學號 ${item.student_id} · Enter／撳書開 PDF`);
   return true;
 }
 
@@ -718,10 +768,12 @@ function updateNearBookHint() {
   if (id === nearHintItemId && !hint.hidden) return;
   nearHintItemId = id;
   hint.hidden = false;
-  hint.innerHTML = `<kbd>Enter</kbd> 開 ${item.year} 錯題簿`;
+  const yHint = yearDisplayName(item.year);
+  const hintOpen = String(item.year) === '2026S' ? yHint : `${yHint} 錯題簿`;
+  hint.innerHTML = `<kbd>Enter</kbd> 開 ${hintOpen}`;
   const bar = $('shelfHint');
   if (bar && (state === 'shelf' || state === 'roam' || state === 'book')) {
-    bar.textContent = `近右牆 ${item.year} 錯題簿 · Enter／撳書開 PDF · 左牆睇排名`;
+    bar.textContent = `近右牆 ${hintOpen} · Enter／撳書開 PDF · 左牆睇排名`;
   }
 }
 function pickFloor(e) {
@@ -778,16 +830,60 @@ function overCat(e) {
   aim(e);
   return raycaster.intersectObject(cat.root, true).length > 0;
 }
-function showTip(e, item) {
+let hoveredBook = null;
+
+function setBookHover(mesh) {
+  if (hoveredBook === mesh) return;
+  clearBookHover();
+  if (!mesh) return;
+  hoveredBook = mesh;
+  if (!mesh.userData._baseScale) mesh.userData._baseScale = mesh.scale.clone();
+  mesh.scale.setScalar(1.07);
+  const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  for (const mat of mats) {
+    if (!mat?.emissive) continue;
+    if (!mat.userData) mat.userData = {};
+    if (!mat.userData._hoverEmissiveOrig) {
+      mat.userData._hoverEmissiveOrig = mat.emissive.clone();
+      mat.userData._hoverEmissiveInt = mat.emissiveIntensity ?? 1;
+    }
+    mat.emissive.set('#e8c27a');
+    mat.emissiveIntensity = 0.45;
+  }
+}
+
+function clearBookHover() {
+  const mesh = hoveredBook;
+  if (!mesh) return;
+  if (mesh.userData._baseScale) mesh.scale.copy(mesh.userData._baseScale);
+  else mesh.scale.set(1, 1, 1);
+  const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  for (const mat of mats) {
+    if (mat?.userData?._hoverEmissiveOrig) {
+      mat.emissive.copy(mat.userData._hoverEmissiveOrig);
+      mat.emissiveIntensity = mat.userData._hoverEmissiveInt ?? 1;
+    }
+  }
+  hoveredBook = null;
+}
+
+function showTip(e, item, mesh = null) {
   const tip = $('tip');
+  const yLabel = yearDisplayName(item.year);
+  const openTxt = String(item.year) === '2026S' ? '點擊開 2026 校本一試' : `點擊開 ${yLabel} 錯題簿`;
   const mineG = gradeOf(item.student_id, item.year);
   const mineLab = mineG ? (LEVEL_LABELS[mineG] || mineG) : '—';
-  tip.innerHTML = `<b>學號 ${item.student_id} · ${item.year}</b><span>撳開 PDF · 你嘅等級 ${mineLab} · 班中位 ${yearGradeLabel(item.year)}</span>`;
-  tip.style.left = `${Math.min(e.clientX + 14, innerWidth - 220)}px`;
-  tip.style.top = `${Math.min(e.clientY + 14, innerHeight - 70)}px`;
+  tip.innerHTML = `<b>${openTxt}</b><span>學號 ${item.student_id} · 你嘅等級 ${mineLab} · 班中位 ${yearGradeLabel(item.year)}</span>`;
+  tip.style.left = `${Math.min(e.clientX + 14, innerWidth - 260)}px`;
+  tip.style.top = `${Math.min(e.clientY + 14, innerHeight - 80)}px`;
   tip.classList.add('show');
+  if (mesh) setBookHover(mesh);
 }
-function hideTip() { $('tip').classList.remove('show'); }
+
+function hideTip() {
+  $('tip').classList.remove('show');
+  clearBookHover();
+}
 
 /* ---------- free movement ---------- */
 function clampPos(p) {
@@ -908,7 +1004,7 @@ function enterAsStudent(raw) {
   mode = 'student';
   studentId = sid;
   $('whoBtn').textContent = `學號 ${sid}`;
-  const years = [...new Set(mine.map((i) => i.year))].sort();
+  const years = [...new Set(mine.map((i) => i.year))].sort(compareYearKeys);
   currentYear = years.at(-1) || currentYear;
   beginPlay();
 }
@@ -950,8 +1046,9 @@ function onPointerMove(e) {
   if ((state === 'shelf' || state === 'roam' || state === 'book' || state === 'intro' || state === 'sign') && !busy) {
     const by = pickBoardYear(e);
     if (by && by.year) {
+      clearBookHover();
       const tip = $('tip');
-      tip.innerHTML = `<b>${by.year} 排名</b><span>撳睇班排名${by.hasPdf ? ' · 之後可去錯題簿' : ''}</span>`;
+      tip.innerHTML = `<b>${yearDisplayName(by.year)} 排名</b><span>撳睇班排名${by.hasPdf ? ' · 之後可去錯題簿' : ''}</span>`;
       tip.style.left = `${Math.min(e.clientX + 14, innerWidth - 220)}px`;
       tip.style.top = `${Math.min(e.clientY + 14, innerHeight - 80)}px`;
       tip.classList.add('show');
@@ -960,7 +1057,7 @@ function onPointerMove(e) {
     }
     const hit = pickWall(e);
     if (hit?.kind === 'book' && hit.item) {
-      showTip(e, hit.item);
+      showTip(e, hit.item, hit.mesh);
       canvasEl.style.cursor = 'pointer';
       return;
     }
@@ -1121,7 +1218,8 @@ function bindUi() {
     await onPointerUp(e);
   });
 
-  canvasEl.addEventListener('pointercancel', () => { petting = null; });
+  canvasEl.addEventListener('pointercancel', () => { petting = null; hideTip(); });
+  canvasEl.addEventListener('pointerleave', () => { if (!petting) hideTip(); });
   addEventListener('resize', () => { resize(); snapNext = true; });
   addEventListener('keydown', async (e) => {
     if (e.target.matches?.('input,textarea')) return;

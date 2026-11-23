@@ -115,6 +115,42 @@ BAY.rowH = (BAY.h - BAY.base - 0.2) / BAY.rows;
 export const rowY = (r) => BAY.base + r * BAY.rowH + (r > 0 ? 0.02 : 0);
 export const SHELF_FRONT = X1 - BAY.d;
 
+/** Catalog year keys are 4 digits, optionally plus S (school mock), e.g. 2026S. */
+export function isYearKey(year) {
+  return /^\d{4}S?$/.test(String(year));
+}
+
+/** Numeric year ascending; 2026S sits immediately after 2026. */
+export function compareYearKeys(a, b) {
+  const key = (y) => {
+    const m = String(y).match(/^(\d{4})(S)?$/);
+    if (!m) return 1e9;
+    return Number(m[1]) + (m[2] ? 0.5 : 0);
+  };
+  return key(a) - key(b);
+}
+
+/** Short spine / ribbon label. Never spell "2026S" vertically. */
+export function yearShortName(year) {
+  return String(year) === '2026S' ? '校本' : String(year);
+}
+
+/** Compact corridor-board label (fits the year column). */
+export function yearBoardLabel(year) {
+  return String(year) === '2026S' ? '2026校本' : String(year);
+}
+
+/** Cover, plates, HUD, tooltips. */
+export function yearDisplayName(year) {
+  return String(year) === '2026S' ? '2026 校本一試' : String(year);
+}
+
+/** Floor-sheet / 總表 title. */
+export function yearFloorTitle(year) {
+  const y = String(year);
+  return y === '2026S' ? '2026 校本一試' : `DSE ${y} 錯題`;
+}
+
 /** Stable bay Z centers along the right wall (matches buildWorld bay loop). */
 export const BAY_ZS = (() => {
   const zs = [];
@@ -127,23 +163,34 @@ export const BAY_ZS = (() => {
 
 /** Each exam year lives on its own bay — walk the hall to discover them. */
 export const YEAR_BAY_Z = {
-  2012: 2.5,
-  2013: 0.65,
-  2014: -1.2,
-  2018: -3.05,
-  2022: -4.05,
+  2012: 6.2,
+  2013: 4.35,
+  2014: 2.5,
+  2015: 0.65,
+  2018: -1.2,
+  2022: -3.05,
   2023: -5.05,
   2024: -6.75,
   2025: -8.6,
   2026: -10.45,
+  '2026S': -12.3,
 };
 
-/** Assign hallway bay Z for every year (uses BAY_ZS in order). */
+function evenlySpacedBays(n) {
+  const zMax = 6.2, zMin = Z0 + 1.2;
+  if (n <= 1) return [Number(((zMax + zMin) / 2).toFixed(2))];
+  const zs = [];
+  for (let i = 0; i < n; i++) zs.push(Number((zMax - (i * (zMax - zMin)) / (n - 1)).toFixed(2)));
+  return zs;
+}
+
+/** Assign hallway bay Z for every year (distinct slots; never stack two years). */
 export function syncYearBayZ(years) {
-  const list = [...years].map(String).sort((a, b) => Number(a) - Number(b));
-  const zs = BAY_ZS.length ? BAY_ZS : Object.values(YEAR_BAY_Z).sort((a, b) => b - a);
+  const list = [...new Set([...years].map(String))].sort(compareYearKeys);
+  let zs = BAY_ZS.slice();
+  if (list.length > zs.length) zs = evenlySpacedBays(list.length);
   list.forEach((y, i) => {
-    YEAR_BAY_Z[y] = zs[Math.min(i, zs.length - 1)];
+    YEAR_BAY_Z[y] = zs[i];
   });
   return YEAR_BAY_Z;
 }
@@ -170,8 +217,10 @@ function makePlaqueTexture(year, color, count) {
   g.fillStyle = color; g.fillRect(0, 0, 640, 52);
   g.fillStyle = '#fffaf0'; g.font = '700 32px sans-serif'; g.textAlign = 'center';
   g.fillText('6A 錯題書架', 320, 36);
-  g.fillStyle = '#3a2a20'; g.font = '900 128px Gaegu, cursive';
-  g.fillText(String(year), 320, 175);
+  g.fillStyle = '#3a2a20';
+  const yLabel = yearDisplayName(year);
+  g.font = yLabel.length > 6 ? '900 64px Gaegu, "Noto Sans TC", cursive' : '900 128px Gaegu, cursive';
+  g.fillText(yLabel, 320, 175);
   g.fillStyle = '#8a705c'; g.font = '600 28px sans-serif';
   g.fillText(count ? `${count} 本個人錯題簿` : '暫時未有冊子', 320, 250);
   const t = new THREE.CanvasTexture(c);
@@ -299,9 +348,11 @@ export function paintSummaryBoard(title, subtitle, rows, scrollY = null) {
     g.fillRect(40, y0, 8, rowH - 8);
 
     g.fillStyle = '#2a1e16';
-    g.font = `900 ${Math.min(58, rowH * 0.55)}px Gaegu, "Noto Sans TC", sans-serif`;
+    const yLab = r.label || yearBoardLabel(r.year);
+    const yFont = Math.min(yLab.length > 5 ? 40 : 58, rowH * (yLab.length > 5 ? 0.4 : 0.55));
+    g.font = `900 ${yFont}px Gaegu, "Noto Sans TC", sans-serif`;
     g.textAlign = 'left'; g.textBaseline = 'middle';
-    g.fillText(String(r.year), 58, mid);
+    g.fillText(yLab, 58, mid);
 
     const youTxt = r.you != null ? String(r.you) : '—';
     g.fillStyle = r.you != null ? (r.accent || '#3a2a20') : '#9a8570';
@@ -346,9 +397,11 @@ export function paintSummaryBoard(title, subtitle, rows, scrollY = null) {
   g.fillStyle = '#5a4638';
   g.font = '700 24px "Noto Sans TC", system-ui, sans-serif';
   g.textAlign = 'left'; g.textBaseline = 'middle';
-  const first = list.length ? list[Math.min(list.length - 1, Math.floor(scrollY / rowH))]?.year : '—';
+  const firstRow = list.length ? list[Math.min(list.length - 1, Math.floor(scrollY / rowH))] : null;
   const lastIdx = list.length ? Math.min(list.length - 1, Math.floor((scrollY + viewH - 1) / rowH)) : 0;
-  const last = list.length ? list[lastIdx]?.year : '—';
+  const lastRow = list.length ? list[lastIdx] : null;
+  const first = firstRow ? (firstRow.label || yearBoardLabel(firstRow.year)) : '—';
+  const last = lastRow ? (lastRow.label || yearBoardLabel(lastRow.year)) : '—';
   g.fillText(maxScroll > 0 ? `顯示 ${first}–${last} · 共 ${list.length} 年排名` : `全部 ${list.length} 年 · 撳睇排名`, 40, (viewBot + H) / 2);
 
   // ▲ ▼ hit zones (pixel space)

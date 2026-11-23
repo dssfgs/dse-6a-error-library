@@ -1,5 +1,8 @@
 import * as THREE from 'three';
-import { SHELF_FRONT, rowY, rgeo, yearBayZ, FEAT_Z } from './world.js';
+import {
+  SHELF_FRONT, rowY, rgeo, yearBayZ, FEAT_Z,
+  isYearKey, compareYearKeys, yearShortName, yearDisplayName, yearFloorTitle,
+} from './world.js';
 export const RIGHT_SHELF_Z = FEAT_Z;
 
 /** Class-median representative grade per exam year (same year → same colour for all). */
@@ -139,12 +142,13 @@ function yearAccent(year) {
   return colorForYear(year);
 }
 
-const BASE_YEAR_ORDER = ['2012', '2013', '2014', '2018', '2022', '2023', '2024', '2025', '2026'];
+const BASE_YEAR_ORDER = ['2012', '2013', '2014', '2015', '2018', '2022', '2023', '2024', '2025', '2026', '2026S'];
 
 function floorEntry(year) {
   const y = String(year);
-  const title = y === '2026' ? '校本／2026 錯題' : `DSE ${y} 錯題`;
-  return { key: y, year: y, name: y, title, color: yearAccent(y) };
+  const title = yearFloorTitle(y);
+  const name = yearShortName(y);
+  return { key: y, year: y, name, title, color: yearAccent(y) };
 }
 
 /** Mutable floor list — rebuilt after catalog/grades load so every dataset year appears. */
@@ -165,13 +169,13 @@ export function collectAllYears(catalog, grades) {
       for (const y of Object.keys(row?.yearDetails || {})) set.add(String(y));
     }
   }
-  return [...set].filter((y) => /^\d{4}$/.test(y)).sort((a, b) => Number(a) - Number(b));
+  return [...set].filter((y) => isYearKey(y)).sort(compareYearKeys);
 }
 
 /** Rebuild YEAR_FLOORS / FLOOR so the left 總表 + floor sheet list every year. */
 export function rebuildYearFloors(years) {
   const list = (years && years.length ? years : BASE_YEAR_ORDER).map(String);
-  const uniq = [...new Set(list)].filter((y) => /^\d{4}$/.test(y)).sort((a, b) => Number(a) - Number(b));
+  const uniq = [...new Set(list)].filter((y) => isYearKey(y)).sort(compareYearKeys);
   YEAR_FLOORS.length = 0;
   for (const y of uniq) YEAR_FLOORS.push(floorEntry(y));
   FLOOR = Object.fromEntries(YEAR_FLOORS.map((f) => [f.key, f]));
@@ -219,11 +223,11 @@ export function bookId(item) {
 function bookDims(item) {
   const h0 = hash(bookId(item));
   const pages = item.pages || 4;
-  // Slightly chunkier so hallway tap/click on the spine is reliable.
+  // Chunkier hallway targets. Height stays inside one shelf row (rowH ≈ 0.712, clear ≈ 0.65).
   return {
-    t: Math.min(0.12, Math.max(0.055, 0.05 + pages * 0.0025 + ((h0 >>> 2) % 3) * 0.006)),
-    h: 0.38 + ((h0 >>> 4) % 4) * 0.025,
-    d: 0.26 + ((h0 >>> 6) % 3) * 0.015,
+    t: Math.min(0.20, Math.max(0.14, 0.14 + Math.min(pages, 16) * 0.002 + ((h0 >>> 2) % 3) * 0.012)),
+    h: 0.58 + ((h0 >>> 4) % 4) * 0.016, // 0.58–0.628
+    d: 0.36 + ((h0 >>> 6) % 3) * 0.03,  // 0.36–0.42; cabinet depth 0.48
   };
 }
 
@@ -250,13 +254,23 @@ function spineTexture(item, dims, yearColor) {
   rrect(g, 16, 40, W - 32, 5, 2); g.fill();
   rrect(g, 16, footY - 16, W - 32, 5, 2); g.fill();
 
-  const year = String(item.year);
-  g.fillStyle = ink; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.font = `900 72px ${SANS}`;
+  const yearGlyph = yearShortName(item.year); // 「校本」 for 2026S, never "2026S"
+  g.textAlign = 'center'; g.textBaseline = 'middle';
   const span = footY - 56;
-  const step = span / year.length;
+  const step = span / Math.max(1, yearGlyph.length);
+  const glyphPx = yearGlyph.length <= 2 ? 110 : 96;
+  g.font = `900 ${glyphPx}px ${SANS}`;
+  g.lineJoin = 'round';
+  g.miterLimit = 2;
+  g.lineWidth = yearGlyph.length <= 2 ? 10 : 8;
+  g.strokeStyle = light ? 'rgba(255,250,240,.92)' : 'rgba(32,22,16,.82)';
+  g.fillStyle = ink;
   let y = 56 + step / 2;
-  [...year].forEach((ch) => { g.fillText(ch, W / 2, y); y += step; });
+  [...yearGlyph].forEach((ch) => {
+    g.strokeText(ch, W / 2, y);
+    g.fillText(ch, W / 2, y);
+    y += step;
+  });
 
   g.fillStyle = '#fffaf0';
   rrect(g, 10, footY, W - 20, footH, 12); g.fill();
@@ -291,8 +305,9 @@ function perfPlateTexture(year, yearColor) {
   rrect(g, 12, 12, W - 24, 54, [36, 36, 0, 0]); g.fill();
   g.fillStyle = '#fffaf0';
   g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.font = `800 36px ${SANS}`;
-  g.fillText(String(year), W / 2, 40);
+  const plateYear = yearDisplayName(year);
+  g.font = `800 ${plateYear.length > 6 ? 28 : 36}px ${SANS}`;
+  g.fillText(plateYear, W / 2, 40);
 
   const grade = gradeForYear(year);
   const gradeTxt = grade ? (LEVEL_LABELS[grade] || grade) : '—';
@@ -341,8 +356,10 @@ function coverTexture(item, dims, yearColor) {
   rrect(g, 34, 34, W - 68, Hh - 68, 20); g.stroke();
   g.fillStyle = yearColor;
   rrect(g, 56, 56, W - 112, 78, 20); g.fill();
-  g.fillStyle = '#fff'; g.font = `900 52px ${SANS}`; g.textAlign = 'center';
-  g.fillText(String(item.year), W / 2, 108);
+  g.fillStyle = '#fff'; g.textAlign = 'center';
+  const coverYear = yearDisplayName(item.year);
+  g.font = `900 ${coverYear.length > 6 ? 36 : 52}px ${SANS}`;
+  g.fillText(coverYear, W / 2, 108);
   const grade = gradeOf(item.student_id, item.year) || gradeForYear(item.year);
   g.font = `700 26px ${SANS}`;
   g.fillText(grade ? `錯題簿 · ${LEVEL_LABELS[grade] || grade}` : '錯題簿', W / 2, 140);
@@ -392,6 +409,13 @@ export function makeBookMesh(item, yearColor) {
   mesh.castShadow = true;
   mesh.receiveShadow = true;
   mesh.userData = { item, dims, id: bookId(item), gradeColor: accent };
+  // Invisible larger hit volume so near-miss clicks still count.
+  const hit = new THREE.Mesh(
+    new THREE.BoxGeometry(d + 0.1, h + 0.12, Math.max(t * 2.4, t + 0.16)),
+    new THREE.MeshBasicMaterial({ visible: false, transparent: true, opacity: 0, depthWrite: false }),
+  );
+  hit.userData.hitProxy = true;
+  mesh.add(hit);
   return mesh;
 }
 
@@ -413,7 +437,8 @@ export function placeWallBooks(items, parent) {
     const { h, d } = m.userData.dims;
     const row = 1 + (hash(year) % 3);
     const y = rowY(row) + 0.01;
-    m.position.set(SHELF_FRONT - d / 2 - 0.01, y + h / 2, z0);
+    const proud = 0.07; // spine sits slightly proud of the cabinet front
+    m.position.set(SHELF_FRONT - proud + d / 2, y + h / 2, z0);
     m.userData.bayZ = z0;
     m.userData.year = year;
     parent.add(m);
