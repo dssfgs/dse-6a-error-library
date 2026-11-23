@@ -139,6 +139,41 @@ function syncMoveHint() {
 }
 
 /* ---------- camera follow ---------- */
+// Keep the follow camera inside the hallway so a long boom never
+// punches through a side wall, shelf, or the end arch (that clip is what
+// feels dizzy when you turn or walk near a wall).
+const CAM_KEEP = {
+  x0: X0 + 0.42,
+  x1: SHELF_FRONT - 0.22,
+  z0: Z0 + 0.85,
+  z1: Z1 - 0.35,
+};
+function camInside(x, z) {
+  return x >= CAM_KEEP.x0 && x <= CAM_KEEP.x1 && z >= CAM_KEEP.z0 && z <= CAM_KEEP.z1;
+}
+function pullCamInside(pos, pivot) {
+  const px = pivot.x, pz = pivot.z;
+  if (camInside(pos.x, pos.z)) return pos;
+  if (!camInside(px, pz)) {
+    pos.x = THREE.MathUtils.clamp(pos.x, CAM_KEEP.x0, CAM_KEEP.x1);
+    pos.z = THREE.MathUtils.clamp(pos.z, CAM_KEEP.z0, CAM_KEEP.z1);
+    return pos;
+  }
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 18; i++) {
+    const mid = (lo + hi) / 2;
+    const x = px + (pos.x - px) * mid;
+    const z = pz + (pos.z - pz) * mid;
+    if (camInside(x, z)) lo = mid;
+    else hi = mid;
+  }
+  pos.x = px + (pos.x - px) * lo;
+  pos.z = pz + (pos.z - pz) * lo;
+  pos.x = THREE.MathUtils.clamp(pos.x, CAM_KEEP.x0, CAM_KEEP.x1);
+  pos.z = THREE.MathUtils.clamp(pos.z, CAM_KEEP.z0, CAM_KEEP.z1);
+  return pos;
+}
+
 function followPose(p = cat?.pos || ENTRANCE, yaw = cat?.yaw ?? 0.1) {
   const fwd = V3(-Math.sin(yaw), 0, -Math.cos(yaw));
   const right = V3(-fwd.z, 0, fwd.x);
@@ -146,9 +181,12 @@ function followPose(p = cat?.pos || ENTRANCE, yaw = cat?.yaw ?? 0.1) {
     camPos.copy(p).addScaledVector(fwd, -1.85).addScaledVector(right, 0.12); camPos.y = 0.82;
     camLook.copy(p).addScaledVector(fwd, 5); camLook.y = 0.26;
   } else {
-    camPos.copy(p).addScaledVector(fwd, -3.4).addScaledVector(right, 0.18); camPos.y = 1.42;
+    // 2.55m stays in the hall when facing a wall from mid-corridor;
+    // pullCamInside shortens further when you are already close to a wall.
+    camPos.copy(p).addScaledVector(fwd, -2.55).addScaledVector(right, 0.18); camPos.y = 1.42;
     camLook.copy(p).addScaledVector(fwd, 5); camLook.y = 0.95;
   }
+  pullCamInside(camPos, p);
 }
 function signPose() {
   // Face the left-wall 總表
@@ -213,7 +251,15 @@ function updateCamera(dt) {
   }
   targetPose();
   const roam = isFreeRoamCam();
-  const posRate = state === 'shelf' && !freeNav ? 3 : roam ? 10 : 4.5;
+  let posRate = state === 'shelf' && !freeNav ? 3 : roam ? 10 : 4.5;
+  // Contract quickly so the lens never hangs inside a wall; ease back out
+  // so the boom doesn't spring off the plaster and make the view swim.
+  if (roam && cat) {
+    const dNow = Math.hypot(camera.position.x - cat.pos.x, camera.position.z - cat.pos.z);
+    const dIdeal = Math.hypot(camPos.x - cat.pos.x, camPos.z - cat.pos.z);
+    if (dIdeal < dNow - 0.08) posRate = 18;
+    else if (dIdeal > dNow + 0.08) posRate = 6;
+  }
   const lookRate = roam ? 20 : posRate;
   const posK = snapNext || STILL ? 1 : 1 - Math.exp(-dt * posRate);
   const lookK = snapNext || STILL ? 1 : 1 - Math.exp(-dt * lookRate);
