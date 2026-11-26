@@ -108,7 +108,7 @@ export function box(w, h, d, mat, x, y, z, parent = scene, r = 0.02, shadow = tr
 }
 
 /* Hallway scale closer to hyeok so walking feels good */
-export const X0 = -3.5, X1 = 3.5, Z0 = -14, Z1 = 8, H = 5.8;
+export const X0 = -3.5, X1 = 3.5, Z0 = -16, Z1 = 8, H = 5.8;
 export const FEAT_Z = -5.05;
 export const BAY = { d: 0.48, h: 3.9, w: 2.05, base: 0.14, rows: 5 };
 BAY.rowH = (BAY.h - BAY.base - 0.2) / BAY.rows;
@@ -168,12 +168,13 @@ export const YEAR_BAY_Z = {
   2014: 2.5,
   2015: 0.65,
   2018: -1.2,
-  2022: -3.05,
-  2023: -5.05,
-  2024: -6.75,
-  2025: -8.6,
-  2026: -10.45,
-  '2026S': -12.3,
+  2021: -3.05,
+  2022: -5.05,
+  2023: -6.75,
+  2024: -8.6,
+  2025: -10.45,
+  2026: -12.3,
+  '2026S': -14.15,
 };
 
 function evenlySpacedBays(n) {

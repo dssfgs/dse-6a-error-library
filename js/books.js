@@ -170,7 +170,7 @@ function yearAccent(year) {
   return colorForYear(year);
 }
 
-const BASE_YEAR_ORDER = ['2012', '2013', '2014', '2015', '2018', '2022', '2023', '2024', '2025', '2026', '2026S'];
+const BASE_YEAR_ORDER = ['2012', '2013', '2014', '2015', '2018', '2021', '2022', '2023', '2024', '2025', '2026', '2026S'];
 
 function floorEntry(year) {
   const y = String(year);
